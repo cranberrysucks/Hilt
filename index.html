@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hilt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+/* VOICE: tense, smoky card-room bluffing; poker meets tarot.
+   IDEA: a candle-lit battle table — black force cards in rows, a chip at stake in the middle.
+   PICTURE: the table itself: seats around a central chip, your row and hand at the bottom.
+   COLOUR and TYPE: deep plum night table, hot magenta lead, orange support, cream white; Archivo Black numerals, Atkinson Hyperlegible body.
+   LAYOUT: top bar, table (opponents → arena → you), side rail with log/chat/rules; stacks below 900px. */
+:root{color-scheme:dark;--bg:#140e17;--felt:#1f1524;--felt2:#2a1c31;--line:#3d2b45;--ink:#f6ece4;--muted:#b6a3b8;--mag:#e5318f;--mag2:#ff5eae;--org:#f2892a;--cream:#f4ece0;--card:#0d0b0e;--good:#5fd08f;--focus:#ffd166}
+:root[data-theme=light]{color-scheme:dark}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Atkinson Hyperlegible",system-ui,sans-serif;overflow-x:clip;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1,h2,h3{font-family:"Archivo Black",Impact,sans-serif;font-weight:400;margin:0;line-height:1.05}
+.top{display:flex;align-items:center;gap:12px;padding:10px max(3vw,14px);border-bottom:1px solid var(--line);background:#0f0a12;position:sticky;top:0;z-index:20;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Archivo Black",Impact,sans-serif;font-size:28px;letter-spacing:.02em}
+.brand svg{width:26px;height:26px}
+.grow{flex:1}
+.btn{border:1px solid var(--line);background:var(--felt2);padding:10px 16px;border-radius:999px;min-height:44px;font-weight:600}
+.btn:hover{border-color:var(--mag)}
+.btn.pri{background:var(--mag);border-color:var(--mag);color:#fff}
+.btn.pri:hover{background:var(--mag2)}
+.btn.org{background:var(--org);border-color:var(--org);color:#1a0f05}
+.btn.sm{padding:6px 12px;min-height:36px;font-size:14px}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+input[type=text]{background:#0f0a12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;font-size:16px}
+.note{color:var(--muted);font-size:14px}
+.wrap{max-width:1240px;margin:0 auto;padding:clamp(18px,3vw,36px) max(3vw,14px)}
+/* home */
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:center}
+.hero h1{font-size:clamp(48px,8vw,96px);color:var(--cream)}
+.hero h1 span{color:var(--mag)}
+.hero p{font-size:17px;max-width:56ch;color:#e3d4dc}
+.fan{position:relative;height:300px}
+.fan .card{position:absolute;left:50%;top:30px;transform-origin:50% 120%}
+.panels{align-items:start;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:28px}
+.panel{background:var(--felt);border:1px solid var(--line);border-radius:16px;padding:18px}
+.panel h3{font-size:24px;margin-bottom:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.li{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--felt2)}
+.code{font-family:ui-monospace,Menlo,monospace;font-weight:700;letter-spacing:.12em;color:var(--mag2)}
+.err{background:#4a1630;border:1px solid var(--mag);padding:10px 12px;border-radius:10px;margin-top:10px}
+/* cards */
+.card{--w:84px;width:var(--w);height:calc(var(--w)*1.5);border-radius:calc(var(--w)*.09);background:var(--card);border:2px solid #3a3040;position:relative;flex:none;color:var(--cream);box-shadow:0 6px 14px rgba(0,0,0,.45);overflow:hidden;user-select:none;padding:0;text-align:left;transition:transform .15s,box-shadow .15s}
+.card .cv{position:absolute;left:7%;top:4%;font-weight:700;font-size:calc(var(--w)*.17)}
+.card .big{position:absolute;inset:auto 0 9% 0;text-align:center;font-family:"Archivo Black",Impact,sans-serif;font-size:calc(var(--w)*.68);line-height:1;letter-spacing:-.02em}
+.card.f10 .big{font-size:calc(var(--w)*.5);bottom:12%;letter-spacing:-.05em}
+.card .nm{position:absolute;left:0;right:0;bottom:6%;text-align:center;font-weight:700;font-size:calc(var(--w)*.15);letter-spacing:.02em}
+.card .gl{position:absolute;left:12%;right:12%;top:16%;height:52%}
+.card .gl svg{width:100%;height:100%}
+.card.fate{border-color:transparent}
+.card.k-BAIT{background:#efe4d3;color:#21161f}
+.card.k-CROWS{background:#2b2230;color:#f6ece4}
+.card.k-DOVES{background:#d9e6ee;color:#1e2833}
+.card.k-FURY{background:var(--org);color:#1f0e02}
+.card.k-LEGEND{background:var(--mag);color:#fff}
+.card.k-WINTER{background:#f7f7fa;color:#21304a}
+.card.back{background:repeating-linear-gradient(45deg,#2a1730 0 6px,#341c3c 6px 12px);border-color:#4b2d55}
+.card.back::after{content:"";position:absolute;inset:18%;border:2px solid var(--mag);border-radius:50%;opacity:.7}
+.eff{position:absolute;right:6%;top:4%;background:var(--org);color:#1a0d02;border-radius:999px;font-size:calc(var(--w)*.15);font-weight:700;padding:0 .4em}
+.card.mini{--w:46px}
+.card.mini .cv{display:none}
+.card.mini .nm{font-size:9px}
+.hand .card{cursor:default}
+.hand .card.ok{cursor:pointer}
+.hand .card.ok:hover{transform:translateY(-10px);box-shadow:0 0 0 3px var(--mag),0 10px 20px rgba(0,0,0,.5)}
+.hand .card.no{filter:brightness(.55) saturate(.6)}
+.card.pick{box-shadow:0 0 0 3px var(--org);cursor:pointer;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{transform:translateY(-6px)}}
+.card.new{animation:drop .35s ease-out}
+@keyframes drop{from{transform:translateY(-24px) scale(1.06);opacity:0}}
+/* chips */
+.chip{--s:22px;width:var(--s);height:var(--s);border-radius:50%;display:inline-grid;place-items:center;border:3px dashed rgba(0,0,0,.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,.35),0 2px 4px rgba(0,0,0,.4);flex:none}
+.chip.M{background:var(--mag)}.chip.O{background:var(--org)}.chip.W{background:var(--cream)}
+.chip.empty{background:transparent;border:2px dashed var(--line);box-shadow:none}
+.chips{display:inline-flex;gap:3px;align-items:center}
+/* table */
+.game{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;padding:10px max(2vw,10px) 16px;max-width:1500px;margin:0 auto}
+.game.withdrawer{grid-template-columns:minmax(0,1fr) 320px}
+.board{display:flex;flex-direction:column;gap:10px}
+.statusbar{text-align:center}
+.status{font-size:19px;font-weight:600;line-height:1.3}
+.status b{color:var(--mag2)}
+.sub{color:var(--muted);font-size:13px}
+.tablewrap{position:relative;height:clamp(400px,calc(100vh - 330px),700px);margin:6px 0 0}
+.felt{position:absolute;inset:7% 9%;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,#5a2453 0%,#3b1840 45%,#2a1130 75%);box-shadow:inset 0 0 0 10px #4a2a1c,inset 0 0 0 13px #7a4a2c,inset 0 0 60px rgba(0,0,0,.6),0 18px 40px rgba(0,0,0,.55)}
+.felt::after{content:"";position:absolute;inset:16%;border-radius:50%;border:1px dashed rgba(255,214,235,.14)}
+.center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2;text-align:center}
+.center .chip{--s:64px;border-width:5px}
+.center .cap{font-size:13px;color:#e9cfe0;background:rgba(15,10,18,.55);padding:2px 10px;border-radius:999px;max-width:220px}
+.center.over{background:rgba(20,10,22,.9);border:1px solid var(--mag);border-radius:18px;padding:16px 22px;gap:10px}
+.center.over h2{font-size:clamp(28px,4vw,46px)}
+.wslot{position:absolute;left:calc(100% + 14px);top:50%;transform:translateY(-50%)}
+.wslot .card{--w:40px}
+.trow{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;z-index:3}
+.trow .card{--w:44px}
+.trow .card+.card{margin-left:-22px}
+.trow.mine .card{--w:54px}.trow.mine .card+.card{margin-left:-24px}
+.trow .card .cv{display:none}
+.trow .card .nm{font-size:8px}
+.trow.lastrow{opacity:.5;filter:saturate(.6)}
+.trow.lastrow.won{opacity:.85;filter:none}
+.wonlbl{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--org)}
+.plate{position:absolute;transform:translate(-50%,-50%);background:rgba(18,11,22,.92);border:1px solid var(--line);border-radius:14px;padding:6px 10px;min-width:118px;max-width:170px;z-index:4;transition:box-shadow .2s,border-color .2s}
+.plate.turn{border-color:var(--mag);box-shadow:0 0 0 2px var(--mag),0 0 22px rgba(229,49,143,.5)}
+.plate.passed{opacity:.6}
+.plate.mine{border-color:#6d4d7a}
+.plate .pn{display:flex;align-items:center;gap:6px}
+.plate .who{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plate .str{margin-left:auto;font-family:"Archivo Black",Impact,sans-serif;font-size:22px;line-height:1;color:var(--cream)}
+.plate .pm{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px}
+.plate .pm .note{font-size:11px}
+.plate .chip{--s:14px!important;border-width:2px}
+.hc{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:3px;margin-left:auto}
+.hc i{width:9px;height:13px;border-radius:2px;background:#3a1f44;border:1px solid var(--mag)}
+.lnk{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;padding:2px 0;min-height:0}
+.tag{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--felt2);color:var(--muted);font-weight:600}
+.tag.mag{background:var(--mag);color:#fff}.tag.org{background:var(--org);color:#1a0d02}
+.favor{flex:none;display:inline-flex;align-items:center;gap:3px;background:var(--cream);color:#1d1220;border-radius:8px;padding:0 6px 0 3px;font-weight:700;font-size:11px}
+.favor svg{width:14px;height:14px}
+.tray{background:linear-gradient(180deg,#24172b,#1a111f);border:1px solid var(--line);border-radius:18px;padding:10px 12px}
+.tray.turn{border-color:var(--mag);box-shadow:0 0 0 1px var(--mag)}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;min-height:0}
+.acts:empty{display:none}
+.hand{display:flex;gap:8px;overflow-x:auto;padding:14px 4px 6px;justify-content:safe center}
+.hand .card{--w:88px}
+.tgl{display:inline-flex;gap:6px}
+.btn.on{background:var(--felt2);border-color:var(--mag)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mag2);margin-left:6px;vertical-align:middle}
+.drawer{display:flex;flex-direction:column;gap:10px;align-self:start;position:sticky;top:76px;max-height:calc(100vh - 90px);overflow-y:auto}
+.dsec{background:var(--felt);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.dh h3{font-size:20px}
+.dh .lnk{text-decoration:none;font-size:16px;padding:4px 8px}
+/* side */
+.side{display:flex;flex-direction:column;gap:12px}
+.side .panel{padding:12px}
+.side h3{font-size:20px}
+.log{max-height:260px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:3px}
+.log div{padding:2px 0;border-bottom:1px solid #2a1f2f}
+.log b{color:var(--mag2)}
+.chatbox{max-height:200px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.chatbox b{color:var(--org)}
+.ref{font-size:13px;display:flex;flex-direction:column;gap:6px}
+.ref div{display:flex;gap:8px;align-items:flex-start}
+.ref .card{--w:30px;border-radius:4px}
+.ref .card .nm,.ref .card .cv{display:none}
+.seatsel{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:12px}
+.seatbox{background:var(--felt2);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:110px}
+.seatbox.mine{border-color:var(--mag)}
+.over{background:radial-gradient(ellipse at 50% 0,#5a1d47,#1f1524 70%);border:1px solid var(--mag);border-radius:18px;padding:20px;text-align:center}
+.over h2{font-size:clamp(34px,5vw,56px)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0f0a12;border:1px solid var(--mag);padding:10px 16px;border-radius:12px;z-index:50;max-width:90vw}
+
+/* player colours, scoreboards, effects, tips */
+.plate{background:color-mix(in srgb,var(--pc) 20%,#120b16);border-left:6px solid var(--pc)}
+.plate.mine{border-color:#6d4d7a;border-left-color:var(--pc)}
+.plate.turn{border-color:var(--mag);border-left-color:var(--pc)}
+.trow:empty{display:none}
+.trow:not(.lastrow){padding:3px 5px 5px;border-radius:10px;background:color-mix(in srgb,var(--pc) 22%,transparent);box-shadow:inset 0 -3px 0 var(--pc)}
+.pdot{width:10px;height:10px;border-radius:50%;background:var(--pc);flex:none;display:inline-block;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.game.withscores{grid-template-columns:250px minmax(0,1fr)}
+.game.withscores.withdrawer{grid-template-columns:240px minmax(0,1fr) 300px}
+.scores{display:flex;flex-direction:column;gap:10px;align-self:start;position:sticky;top:76px;max-height:calc(100vh - 90px);overflow-y:auto}
+.sbox{background:var(--felt);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.sbox h4{margin:0 0 6px;font-family:"Archivo Black",Impact,sans-serif;font-weight:400;font-size:15px;letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+.sr,.br{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:8px;margin-bottom:3px;background:color-mix(in srgb,var(--pc) 16%,transparent);font-size:14px}
+.sr .rk{font-weight:700;color:var(--muted);width:12px;font-size:12px}
+.sr .nm,.br .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:7.5em}
+.sr .chips{margin-left:auto}.sr .chip{--s:13px!important;border-width:2px}
+.sr .nochip{display:none}
+.need{font-size:12px;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;gap:2px}
+.need.hot{color:#ffd166;font-weight:700}
+.need .chip{border-width:2px}
+.br .bar{flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.08);min-width:30px}
+.br .bar i{display:block;height:100%;border-radius:4px;background:var(--pc);transition:width .35s}
+.br .bv{font-family:"Archivo Black",Impact,sans-serif;font-weight:400;font-size:17px;min-width:1.6em;text-align:right}
+.br.pz{opacity:.55}.br.lead{box-shadow:inset 0 0 0 2px var(--mag)}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-top:6px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--mag)}
+.fx{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;padding:6px 8px;border-radius:9px;margin-bottom:5px;background:var(--felt2)}
+.fx svg{width:18px;height:24px;flex:none}
+.fx.k-WINTER{background:#e9eef7;color:#1d2a40}.fx.k-FURY{background:var(--org);color:#1f0e02}.fx.k-LEGEND{background:var(--mag);color:#fff}
+.fx.fav{background:var(--cream);color:#1d1220}.fx.fav svg{width:16px;height:18px}
+.fx.stake{background:#0f0a12;border:1px solid var(--line)}
+.seen{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
+.seen .note{width:100%;font-size:12px}
+.sc{font-size:12px;padding:1px 7px;border-radius:999px;background:#0f0a12;color:var(--muted);border:1px solid var(--line)}
+.sc.on{color:var(--ink);border-color:var(--mag)}
+.tip{position:fixed;z-index:60;max-width:260px;background:#0f0a12;color:var(--ink);border:1px solid var(--mag);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,.6);pointer-events:none;animation:tipin .14s ease-out}
+.tip::after{content:"";position:absolute;left:calc(var(--ax) - 7px);bottom:-7px;width:12px;height:12px;background:#0f0a12;border-right:1px solid var(--mag);border-bottom:1px solid var(--mag);transform:rotate(45deg)}
+.tip.below::after{bottom:auto;top:-7px;transform:rotate(225deg)}
+.tip .th{margin-bottom:3px}.tip .tn{font-family:"Archivo Black",Impact,sans-serif;font-weight:400;font-size:16px;color:var(--mag2)}
+.tip .tx{margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+.tip .good{color:var(--good)}.tip .warn{color:#ffd166}
+@keyframes tipin{from{opacity:0;transform:translateY(4px)}}
+@media(max-width:1100px){.game.withscores,.game.withscores.withdrawer{grid-template-columns:minmax(0,1fr)}.game.withdrawer:not(.withscores){grid-template-columns:minmax(0,1fr)}
+ .scores{position:static;flex-direction:row;overflow-x:auto;max-height:none;padding-bottom:4px;scroll-snap-type:x mandatory}.sbox{flex:0 0 min(300px,86vw);scroll-snap-align:start;max-height:230px;overflow-y:auto}
+ .drawer{position:fixed;right:8px;top:70px;bottom:8px;width:min(340px,calc(100vw - 16px));max-height:none;z-index:30;background:rgba(15,10,18,.97);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:-10px 0 30px rgba(0,0,0,.5)}}
+.diag{font-size:13px;background:#0f0a12;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;display:flex;flex-direction:column;gap:2px}
+.icebox{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}.icebox summary{cursor:pointer;font-weight:700}
+.icebox textarea{width:100%;font:12px ui-monospace,Menlo,monospace;background:#0f0a12;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0}
+@media(max-width:1000px){.game.withdrawer{grid-template-columns:minmax(0,1fr)}.drawer{position:fixed;right:8px;top:70px;bottom:8px;width:min(340px,calc(100vw - 16px));max-height:none;z-index:30;background:rgba(15,10,18,.97);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:-10px 0 30px rgba(0,0,0,.5)}}
+@media(max-width:900px){.hero{grid-template-columns:minmax(0,1fr)}.fan{height:240px}}
+@media(max-width:600px){.top .brand{font-size:0;gap:0}.top .tag{display:none}.top{gap:6px;padding:8px 10px}.tgl .btn,.top .btn.sm{padding:5px 9px;font-size:13px;min-height:34px}.tablewrap{height:clamp(440px,calc(100svh - 290px),560px)}.plate .tag.pz,.plate .nochip{display:none}.felt{inset:6% 4%}.plate{min-width:96px;max-width:124px;padding:5px 7px}.plate .who{font-size:12px}.plate .str{font-size:18px}.trow .card{--w:34px}.trow .card+.card{margin-left:-20px}.trow.mine .card{--w:42px}.trow.mine .card+.card{margin-left:-22px}.center .chip{--s:46px}.hand .card{--w:70px}.status{font-size:16px}.brand{font-size:24px}.tgl .btn{padding:6px 10px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ===== Hilt rules engine (pure; state is plain JSON) =====
+const H = (() => {
+  const COLORS = ['M', 'O', 'W'];
+  const CNAME = { M: 'Magenta', O: 'Orange', W: 'White' };
+  const FATE = {
+    BAIT: { name: 'Bait', text: 'Discard this and take one force card you played this battle back into your hand. Can’t take Legend.' },
+    CROWS: { name: 'Crows', text: 'The battle ends now. Whoever currently has the highest strength wins.' },
+    DOVES: { name: 'Doves', text: 'The battle ends now. No one wins; the Favor and the chip stay for the next battle.' },
+    FURY: { name: 'Fury', text: 'Double the strength of all your force cards. One Fury per player per battle.' },
+    LEGEND: { name: 'Legend', text: 'Worth 10. Not affected by Winter or Fury. Can’t be Baited.' },
+    WINTER: { name: 'Winter', text: 'Played in the middle, once per battle. Every force card is worth 1 (2 with Fury).' },
+  };
+  const clone = o => JSON.parse(JSON.stringify(o));
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function makeDeck() {
+    const d = []; let id = 0;
+    const add = (k, n) => { for (let i = 0; i < n; i++) d.push(k + '.' + (id++)); };
+    add('F1', 15); for (const v of [2, 3, 4, 5, 6, 10]) add('F' + v, 8);
+    add('BAIT', 15); add('FURY', 6); add('LEGEND', 3); add('WINTER', 3); add('CROWS', 3); add('DOVES', 3);
+    return d; // 96 cards; the Favor card is tracked separately
+  }
+  const kind = c => c.split('.')[0];
+  const isForce = c => c[0] === 'F' && c[1] !== 'U';
+  const faceVal = c => isForce(c) ? +kind(c).slice(1) : 0;
+  function shuffle(a, st) {
+    const r = rng(st.seed = (st.seed * 1103515245 + 12345) >>> 0);
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  function log(st, s, txt) { st.log.push([s, txt]); if (st.log.length > 60) st.log.splice(0, st.log.length - 60); }
+
+  function newGame(n, opts = {}) {
+    const st = {
+      n, seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
+      hands: [], rows: [], passed: [], chips: [], deck: [], discard: [],
+      favor: opts.first ?? 0, chip: null, turn: null, winter: null, phase: 'choose',
+      battle: 0, round: 0, last: null, log: [], winner: null, furyBy: [], seq: 0,
+    };
+    for (let i = 0; i < n; i++) st.chips.push({ M: 0, O: 0, W: 0 });
+    if (opts.first == null) st.favor = Math.floor(rng(st.seed ^ 0x9e37)() * n);
+    deal(st);
+    return st;
+  }
+  function chipCount(ch) { return ch.M + ch.O + ch.W; }
+  function deal(st) {
+    st.round++;
+    st.deck = shuffle(makeDeck(), st); st.discard = [];
+    st.hands = [];
+    for (let i = 0; i < st.n; i++) st.hands.push(st.deck.splice(0, Math.min(st.deck.length, 10 + chipCount(st.chips[i]))));
+    st.hands.forEach(h => sortHand(h));
+    log(st, null, `Round ${st.round}: everyone is dealt 10 cards, plus 1 per chip.`);
+    resetBattle(st);
+  }
+  const ORDERK = ['F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F10', 'LEGEND', 'FURY', 'WINTER', 'BAIT', 'CROWS', 'DOVES'];
+  function sortHand(h) { h.sort((a, b) => ORDERK.indexOf(kind(a)) - ORDERK.indexOf(kind(b)) || a.localeCompare(b)); }
+  function resetBattle(st) {
+    st.rows = Array.from({ length: st.n }, () => []);
+    st.passed = Array(st.n).fill(false); st.winter = null; st.furyBy = [];
+    st.turn = null;
+  }
+  // ---- strength ----
+  function cardVal(st, s, c) {
+    const k = kind(c);
+    if (k === 'LEGEND') return 10;
+    if (!isForce(c)) return 0;
+    let v = st.winter != null ? 1 : faceVal(c);
+    if (st.rows[s].some(x => kind(x) === 'FURY')) v *= 2;
+    return v;
+  }
+  function strength(st, s) { return st.rows[s].reduce((a, c) => a + cardVal(st, s, c), 0) + (st.favor === s ? 1 : 0); }
+  function strengths(st) { return st.rows.map((_, s) => strength(st, s)); }
+  // the player who would win if the battle ended now (tie-breaks from the rules)
+  function leader(st) {
+    const str = strengths(st); const max = Math.max(...str);
+    let c = str.map((v, s) => v === max ? s : -1).filter(s => s >= 0);
+    if (c.length > 1) { const m = Math.min(...c.map(s => st.rows[s].length)); c = c.filter(s => st.rows[s].length === m); }
+    if (c.length > 1) { const hi = s => Math.max(0, ...st.rows[s].map(x => cardVal(st, s, x))); const m = Math.max(...c.map(hi)); c = c.filter(s => hi(s) === m); }
+    if (c.length > 1) { for (let k = 0; k < st.n; k++) { const s = (st.favor + k) % st.n; if (c.includes(s)) return s; } }
+    return c[0];
+  }
+  function wouldWinGame(ch, color) { const x = { ...ch }; x[color]++; return x.M >= 3 || x.O >= 3 || x.W >= 3 || (x.M && x.O && x.W); }
+  function gameWon(ch) { return ch.M >= 3 || ch.O >= 3 || ch.W >= 3 || (ch.M > 0 && ch.O > 0 && ch.W > 0); }
+  // ---- who acts ----
+  function whoActs(st) {
+    if (st.phase === 'choose') return st.favor;
+    if (st.phase === 'battle') return st.turn;
+    return null;
+  }
+  function chipsLeft(st, color) { return 10 - st.chips.reduce((a, ch) => a + ch[color], 0); }
+  // legal plays for seat s
+  function legal(st, s) {
+    if (st.phase !== 'battle' || st.turn !== s) return [];
+    return st.hands[s].filter(c => {
+      const k = kind(c);
+      if (k === 'FURY') return !st.furyBy.includes(s);
+      if (k === 'WINTER') return st.winter == null;
+      return true;
+    });
+  }
+  function canDump(st, s) { return st.hands[s].length > 0 && !st.hands[s].some(isForce); }
+  function baitTargets(st, s) { return st.rows[s].filter(isForce); }
+
+  // ---- actions ----
+  // returns new state, or throws an Error with a user-facing message
+  function apply(st0, seat, a) {
+    const st = clone(st0);
+    if (st.phase === 'over') throw new Error('The game is over.');
+    if (whoActs(st) !== seat) throw new Error('It isn’t your turn.');
+    st.seq++;
+    if (a.t === 'chip') {
+      if (st.phase !== 'choose') throw new Error('Not choosing a chip now.');
+      if (!COLORS.includes(a.color) || chipsLeft(st, a.color) <= 0) throw new Error('That chip isn’t available.');
+      st.chip = a.color; st.phase = 'battle';
+      log(st, seat, `put a ${CNAME[a.color]} chip up for battle.`);
+      startBattle(st);
+      return st;
+    }
+    if (st.phase !== 'battle') throw new Error('No battle in progress.');
+    if (a.t === 'pass') {
+      st.passed[seat] = true;
+      if (a.dump) {
+        if (!canDump(st, seat)) throw new Error('You can only discard your hand when it has no force cards.');
+        const shown = st.hands[seat].map(kind);
+        st.discard.push(...st.hands[seat]); st.hands[seat] = [];
+        log(st, seat, `passed, showed a hand with no force cards (${shown.map(k => FATE[k] ? FATE[k].name : k).join(', ')}) and discarded it.`);
+      } else log(st, seat, 'passed.');
+      advance(st);
+      return st;
+    }
+    if (a.t === 'play') {
+      const c = a.card;
+      if (!legal(st, seat).includes(c)) throw new Error('You can’t play that card now.');
+      st.hands[seat] = st.hands[seat].filter(x => x !== c);
+      const k = kind(c);
+      if (k === 'WINTER') { st.winter = seat; st.discard.push(c); log(st, seat, 'played Winter: every force card is now worth 1.'); }
+      else if (k === 'BAIT') {
+        const tg = baitTargets(st, seat);
+        st.discard.push(c);
+        if (tg.length) {
+          const t = tg.includes(a.target) ? a.target : tg.reduce((b, x) => faceVal(x) > faceVal(b) ? x : b, tg[0]);
+          st.rows[seat] = st.rows[seat].filter(x => x !== t); st.hands[seat].push(t); sortHand(st.hands[seat]);
+          log(st, seat, `played Bait and took their ${faceVal(t)} back into hand.`);
+        } else log(st, seat, 'played Bait with nothing to take back.');
+      } else {
+        st.rows[seat].push(c);
+        if (k === 'FURY') { st.furyBy.push(seat); log(st, seat, 'played Fury: their force cards count double.'); }
+        else if (k === 'LEGEND') log(st, seat, 'played Legend (10).');
+        else if (k === 'CROWS') { log(st, seat, 'played Crows: the battle ends now!'); resolve(st, 'crows'); return st; }
+        else if (k === 'DOVES') { log(st, seat, 'played Doves: the battle ends with no winner.'); resolve(st, 'doves'); return st; }
+        else log(st, seat, `played a ${faceVal(c)}.`);
+      }
+      advance(st, seat);
+      return st;
+    }
+    throw new Error('Unknown action.');
+  }
+  function startBattle(st) {
+    st.battle++;
+    // players with no cards can't do anything this battle
+    for (let s = 0; s < st.n; s++) if (!st.hands[s].length) st.passed[s] = true;
+    st.turn = null; nextTurn(st, st.favor);
+  }
+  function nextTurn(st, from) {
+    for (let k = 1; k <= st.n; k++) {
+      const s = (from + k) % st.n;
+      if (!st.passed[s]) {
+        if (!st.hands[s].length) { st.passed[s] = true; log(st, s, 'is out of cards and passes.'); continue; }
+        st.turn = s; return;
+      }
+    }
+    resolve(st, 'passed');
+  }
+  function advance(st, seat) { if (st.phase === 'battle') nextTurn(st, seat ?? st.turn); }
+  function resolve(st, how) {
+    const str = strengths(st);
+    const rows = clone(st.rows);
+    const chip = st.chip;
+    let winner = null;
+    if (how !== 'doves') {
+      winner = leader(st);
+      st.chips[winner][chip]++;
+      log(st, winner, `won the battle with ${str[winner]} strength and takes the ${CNAME[chip]} chip and the Favor.`);
+      st.favor = winner;
+    }
+    st.last = { rows, str, winner, how, chip, winter: st.winter, battle: st.battle, favorWas: rows ? null : null };
+    for (const r of st.rows) st.discard.push(...r);
+    if (winner != null && gameWon(st.chips[winner])) {
+      st.phase = 'over'; st.winner = winner; st.turn = null;
+      log(st, winner, 'wins the game!');
+      return;
+    }
+    // end of round?
+    const holding = st.hands.map((h, s) => h.length ? s : -1).filter(s => s >= 0);
+    if (holding.length <= 1) {
+      if (holding.length === 1) { const s = holding[0]; log(st, s, `is the last with cards and discards ${st.hands[s].length}.`); }
+      st.last.roundEnd = true;
+      deal(st);
+    } else resetBattle(st);
+    if (how === 'doves') { st.phase = 'battle'; log(st, null, `The ${CNAME[chip]} chip stays up for the next battle.`); startBattle(st); }
+    else { st.chip = null; st.phase = 'choose'; }
+  }
+
+  // ===== Bots =====
+  function botChip(st, s) {
+    const me = st.chips[s];
+    let best = null, bv = -1e9;
+    for (const c of COLORS) {
+      if (chipsLeft(st, c) <= 0) continue;
+      let v = 0;
+      if (wouldWinGame(me, c)) v += 100;
+      v += me[c] * 3 + (me[c] === 0 ? 2 : 0);
+      for (let o = 0; o < st.n; o++) if (o !== s && wouldWinGame(st.chips[o], c)) v -= 40;
+      v += Math.random();
+      if (v > bv) { bv = v; best = c; }
+    }
+    return { t: 'chip', color: best };
+  }
+  function botPlay(st, s) {
+    const hand = st.hands[s];
+    const L = legal(st, s);
+    const lead = leader(st);
+    const others = [...Array(st.n).keys()].filter(o => o !== s);
+    const iWin = wouldWinGame(st.chips[s], st.chip);
+    const threat = lead !== s && wouldWinGame(st.chips[lead], st.chip);
+    const avgOther = others.reduce((a, o) => a + st.hands[o].length, 0) / Math.max(1, others.length);
+    const value = 1 + (iWin ? 4 : 0) + (threat ? 3 : 0) + others.filter(o => wouldWinGame(st.chips[o], st.chip)).length * 0.5;
+    const budget = 2 + value * 2 + Math.max(0, hand.length - avgOther);
+    const has = k => L.find(c => kind(c) === k);
+    const alive = others.filter(o => !st.passed[o]);
+    if (lead === s) {
+      if (has('CROWS') && alive.length && value >= 2) return { t: 'play', card: has('CROWS') };
+      return passAct(st, s);
+    }
+    if (threat && has('DOVES')) {
+      // try to outbid cheaply first; otherwise Doves
+      const p = cheapestLead(st, s, L);
+      if (!p || p.cost > budget) return { t: 'play', card: has('DOVES') };
+    }
+    const p = cheapestLead(st, s, L);
+    if (p && p.cost <= budget) return { t: 'play', card: p.card };
+    if (has('CROWS') && false) return null;
+    // can't take the lead cheaply: keep pushing only if the chip matters a lot and we're rich in cards
+    if ((value >= 4 || hand.length - avgOther >= 4) && L.some(isForce)) {
+      const f = L.filter(isForce).sort((a, b) => faceVal(b) - faceVal(a))[0];
+      return { t: 'play', card: f };
+    }
+    // giving up: recover our best committed card with Bait
+    const bt = has('BAIT'); const tg = baitTargets(st, s);
+    if (bt && tg.length && tg.some(c => faceVal(c) >= 4)) return { t: 'play', card: bt, target: tg.sort((a, b) => faceVal(b) - faceVal(a))[0] };
+    return passAct(st, s);
+  }
+  function passAct(st, s) {
+    const dump = canDump(st, s) && !st.hands[s].some(c => kind(c) === 'LEGEND');
+    return { t: 'pass', dump };
+  }
+  function cheapestLead(st, s, L) {
+    let best = null;
+    const COST = { LEGEND: 9, FURY: 3, WINTER: 3, BAIT: 99, CROWS: 99, DOVES: 99 };
+    for (const c of L) {
+      const k = kind(c);
+      if (COST[k] === 99) continue;
+      const t = clone(st);
+      t.hands[s] = t.hands[s].filter(x => x !== c);
+      if (k === 'WINTER') t.winter = s; else t.rows[s].push(c);
+      if (leader(t) !== s) continue;
+      const cost = isForce(c) ? (faceVal(c) === 10 ? 8 : faceVal(c)) : COST[k];
+      if (!best || cost < best.cost) best = { card: c, cost };
+    }
+    return best;
+  }
+  function botAct(st, s) { return st.phase === 'choose' ? botChip(st, s) : botPlay(st, s); }
+
+  return { COLORS, CNAME, FATE, newGame, apply, whoActs, legal, canDump, baitTargets, strengths, strength, leader, cardVal, kind, isForce, faceVal, botAct, chipsLeft, wouldWinGame, clone };
+})();
+
+
+</script>
+<script>
+{
+const ART_URL = 'https://claude.ai/artifact/AYoTDQRQJGReXqJSm95LQR';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ls = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const BOTN = ['Rook', 'Vesper', 'Marlow', 'Juno', 'Pike', 'Sable'];
+const S = { view: 'home', mode: null, name: ls.get('hilt.name') || '', uid: null, db: null, user: null, caps: 'loading', G: null, st: null, code: null, unsub: null, chatUnsub: null, chat: [], open: [], mine: [], ui: { bait: null, nseats: 4, practiceN: 4, join: '', panels: (() => { try { return JSON.parse(localStorage.getItem('hilt.panels')) || {}; } catch (e) { return {}; } })() }, unread: false, _o: 0, err: '', seen: 0 };
+if (!S.uid) { let lid = ls.get('hilt.lid'); if (!lid) { lid = 'L' + Math.random().toString(36).slice(2, 10); ls.set('hilt.lid', lid); } S.localId = lid; }
+
+// ---------- art (original simple glyphs) ----------
+const HILT_SVG = '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2v4M10 8h12l-2 3h-8z" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="11" width="4" height="10" rx="1" fill="currentColor"/><path d="M16 21v9" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+const GLYPH = {
+  BAIT: '<svg viewBox="0 0 60 80"><path d="M30 8v40a12 12 0 1 1-24 0" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M6 48l-4-9 10 2" fill="currentColor"/><path d="M42 30c8 2 12 10 8 18M50 48l-9 1 5-8" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="8" r="4" fill="currentColor"/></svg>',
+  CROWS: '<svg viewBox="0 0 60 80"><path d="M8 46c10-2 16-10 20-18 6-8 16-8 22-2l6 2-6 3c0 12-10 22-26 24l-8 10-2-9c-3 0-5-2-6-4z" fill="currentColor"/><circle cx="46" cy="29" r="2" fill="#2b2230"/><path d="M18 22c6-6 12-6 16-2" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
+  DOVES: '<svg viewBox="0 0 60 80"><path d="M8 40c8 0 14-4 18-10-2 8 0 14 6 16 8 2 14-2 18-8l4 2-4 2c-2 12-12 18-24 16L12 62l4-8C10 52 8 46 8 40z" fill="currentColor"/><path d="M48 44c4 2 8 6 8 10" stroke="#3b7a3a" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="54" cy="52" rx="3" ry="2" fill="#3b7a3a"/></svg>',
+  FURY: '<svg viewBox="0 0 60 80"><path d="M30 6c4 14 18 18 18 36a18 18 0 0 1-36 0c0-10 6-14 8-22 2 8 6 10 8 10 2-10-2-16 2-24z" fill="currentColor"/><text x="30" y="58" text-anchor="middle" font-family="Atkinson Hyperlegible" font-weight="700" font-size="16" fill="#f2892a">2×</text></svg>',
+  LEGEND: '<svg viewBox="0 0 60 80"><path d="M10 30l10 8 10-18 10 18 10-8-4 22H14z" fill="currentColor"/><rect x="14" y="54" width="32" height="5" rx="2" fill="currentColor"/><text x="30" y="78" text-anchor="middle" font-family="Archivo Black" font-size="18" fill="currentColor">10</text></svg>',
+  WINTER: '<svg viewBox="0 0 60 80"><g stroke="currentColor" stroke-width="4" stroke-linecap="round"><path d="M30 14v52M8 27l44 26M8 53l44-26"/><path d="M24 18l6 6 6-6M24 62l6-6 6 6M10 36l8-1-3-7M50 44l-8 1 3 7M10 44l8 1-3 7M50 36l-8-1 3-7" fill="none"/></g></svg>',
+};
+function cardHTML(c, o = {}) {
+  const k = H.kind(c); const cls = ['card', o.cls || ''];
+  let inner;
+  if (H.isForce(c)) { const v = H.faceVal(c); cls.push('force', 'f' + v); inner = `<span class="cv">${v}</span><span class="big">${v}</span>`; }
+  else { cls.push('fate', 'k-' + k); inner = `<span class="gl">${GLYPH[k]}</span><span class="nm">${H.FATE[k].name}</span>`; }
+  if (o.eff != null && H.isForce(c) && o.eff !== H.faceVal(c)) inner += `<span class="eff" title="Worth ${o.eff} right now">=${o.eff}</span>`;
+  const tag = o.btn ? 'button' : 'div';
+  const title = H.isForce(c) ? `Force ${H.faceVal(c)}` : `${H.FATE[k].name}: ${H.FATE[k].text}`;
+  return `<${tag} class="${cls.join(' ')}" aria-label="${esc(title)}" data-tip="${c}|${o.loc || 'ref'}" ${o.attr || ''}>${inner}</${tag}>`;
+}
+const chipHTML = (c, s) => `<span class="chip ${c}" ${s ? `style="--s:${s}px"` : ''} title="${H.CNAME[c] || ''}"></span>`;
+const chipsOf = ch => `<span class="chips">${['M', 'O', 'W'].map(c => Array.from({ length: ch[c] }, () => chipHTML(c, 18)).join('')).join('') || '<span class="note nochip">no chips</span>'}</span>`;
+const favorTag = `<span class="favor" title="Favor: +1 strength, picks the next chip">${HILT_SVG}Favor +1</span>`;
+
+// ---------- identity & capabilities ----------
+const myId = () => S.uid || S.localId;
+async function initCaps() {
+  const timer = setTimeout(() => { if (S.caps === 'loading') { S.caps = 'off'; render(); } }, 10000);
+  try {
+    if (!window.claude || !window.claude.use) throw 0;
+    const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+    S.db = db; S.user = user;
+    if (user && user.id) { S.uid = await user.id(); if (!S.name) { try { const ps = await user.profiles([S.uid]); const n = ps && ps[S.uid] && ps[S.uid].name; if (n) S.name = n.split(' ')[0].slice(0, 20); } catch (e) {} } }
+    S.caps = db && S.uid ? 'on' : 'off';
+  } catch (e) { S.caps = 'off'; }
+  clearTimeout(timer);
+  render();
+  if (S.caps === 'on') { watchLobby(); const m = location.hash.match(/^#join-([A-Z0-9]{5})$/i); if (m) { openTable(m[1].toUpperCase()); } }
+  else autoRejoin();
+}
+function watchLobby() {
+  try {
+    S.db.collection('games').where('status', '==', 'lobby').limit(40).onSnapshot(q => { S.open = q.docs.map(d => d.data()).filter(g => g && Date.now() - (g.updatedAt || 0) < 6 * 3600e3); if (S.view === 'home') render(); }, () => {});
+    S.db.collection('games').where('status', '==', 'playing').limit(60).onSnapshot(q => { S.mine = q.docs.map(d => d.data()).filter(g => g && Date.now() - (g.updatedAt || 0) < 24 * 3600e3); if (S.view === 'home') render(); }, () => {});
+  } catch (e) {}
+}
+
+// ---------- game container ----------
+function genCode() { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from({ length: 5 }, () => A[Math.floor(Math.random() * A.length)]).join(''); }
+function emptySeat() { return { kind: 'empty', uid: null, name: '' }; }
+function seatNames(G) { return G.seats.map((s, i) => s.name || 'Seat ' + (i + 1)); }
+function mySeat() { const G = S.G; if (!G || !G.seats) return -1; if (S.mode === 'local') return 0; return G.seats.findIndex(s => s.kind === 'human' && s.uid === myId()); }
+function parseState() { S.st = S.G && S.G.state ? (typeof S.G.state === 'string' ? JSON.parse(S.G.state) : S.G.state) : null; }
+
+// practice
+function startPractice(n) {
+  const name = (S.name || 'You').trim().slice(0, 20);
+  const seats = [{ kind: 'human', uid: myId(), name }];
+  for (let i = 1; i < n; i++) seats.push({ kind: 'bot', uid: null, name: BOTN[i - 1] });
+  S.mode = 'local'; S.code = null;
+  S.G = { code: 'LOCAL', status: 'playing', hostId: myId(), seats, nseats: n, state: JSON.stringify(H.newGame(n)), rev: 1, updatedAt: Date.now() };
+  parseState(); S.view = 'table'; S.ui.bait = null; render(); scheduleBots();
+}
+
+// ---------- transport ----------
+// 'p2p': standalone site (Netlify). The host's browser holds the game and runs the bots; other players
+//        connect to the host through PeerJS (WebRTC) and send operations; the host applies them and sends
+//        each player the table with the other players' hands hidden. Same setup as the Barbu card table.
+// 'db':  opened on claude.ai, where the page's shared store syncs the table instead.
+const NET = () => S.caps === 'on' ? 'db' : (window.Peer ? 'p2p' : 'off');
+
+// every change to a table goes through applyOp, wherever it runs (practice, host, or shared store)
+function applyOp(G0, uid, name, op) {
+  const G = H.clone(G0), host = uid === G.hostId;
+  name = String(name || '').trim().slice(0, 20) || 'Player';
+  const lobby = () => { if (G.status !== 'lobby') throw new Error('The game has already started.'); };
+  const needHost = () => { if (!host) throw new Error('Only the host can do that.'); };
+  const getSt = () => typeof G.state === 'string' ? JSON.parse(G.state) : G.state;
+  const put = ns => { G.state = JSON.stringify(ns); if (ns.phase === 'over') G.status = 'done'; };
+  const i = op.i | 0;
+  switch (op.type) {
+    case 'sit': lobby(); if (!G.seats[i]) return null; if (G.seats[i].kind !== 'empty') throw new Error('That seat is taken.');
+      G.seats = G.seats.map(s => s.uid === uid ? emptySeat() : s); G.seats[i] = { kind: 'human', uid, name }; break;
+    case 'stand': lobby(); if (!G.seats[i] || G.seats[i].kind === 'empty') return null; if (G.seats[i].uid !== uid) needHost(); G.seats[i] = emptySeat(); break;
+    case 'addbot': { lobby(); needHost(); if (!G.seats[i] || G.seats[i].kind !== 'empty') return null; const used = G.seats.map(s => s.name); G.seats[i] = { kind: 'bot', uid: null, name: BOTN.find(n => !used.includes(n)) || 'Bot' }; break; }
+    case 'nseats': { lobby(); needHost(); const n = Math.max(2, Math.min(6, op.n | 0)); while (G.seats.length < n) G.seats.push(emptySeat()); while (G.seats.length > n) { const j = G.seats.map(s => s.kind).lastIndexOf('empty'); if (j < 0) throw new Error('Free a seat first.'); G.seats.splice(j, 1); } G.nseats = n; break; }
+    case 'start': { lobby(); needHost(); const seats = G.seats.filter(s => s.kind !== 'empty'); if (seats.length < 2) throw new Error('Need at least two players.'); G.seats = seats; G.nseats = seats.length; G.status = 'playing'; put(H.newGame(seats.length)); G.status = 'playing'; break; }
+    case 'act': { if (G.status !== 'playing') return null; const s = G.seats.findIndex(x => x.kind === 'human' && x.uid === uid); if (s < 0) throw new Error('You aren’t seated at this table.'); put(H.apply(getSt(), s, op.a)); break; }
+    case 'bot': { if (G.status !== 'playing' || (op.rev != null && op.rev !== G.rev)) return null; const st = getSt(), w = H.whoActs(st); if (w == null || !G.seats[w] || G.seats[w].kind !== 'bot') return null; put(H.apply(st, w, H.botAct(st, w))); break; }
+    case 'takeover': { needHost(); const s = G.seats[i]; if (!s || s.kind !== 'human' || s.uid === uid) return null; G.seats[i] = { kind: 'bot', uid: null, name: s.name + ' (bot)', was: s.uid, wasName: s.name }; break; }
+    case 'reclaim': { const s = G.seats[i]; if (!s || s.kind !== 'bot' || s.was !== uid) return null; G.seats[i] = { kind: 'human', uid, name: s.wasName || name }; break; }
+    case 'rematch': needHost(); G.status = 'lobby'; G.state = ''; break;
+    default: return null;
+  }
+  G.rev = (G.rev || 0) + 1; G.updatedAt = Date.now();
+  return G;
+}
+function setGame(g) {
+  const prev = S.st; S.G = g; parseState(); S.err = '';
+  if (prev && S.st && S.st.battle !== prev.battle) S.ui.bait = null;
+  render(); scheduleBots(); turnTitle();
+}
+async function send(op) {
+  const nm = S.name || 'You';
+  try {
+    if (S.mode === 'local') { const ng = applyOp(S.G, myId(), nm, op); if (ng) setGame(ng); }
+    else if (S.net) {
+      if (S.net.host) { const err = hostApply(myId(), nm, op); if (err) toast(err); }
+      else if (S.net.conn && S.net.conn.open) S.net.conn.send({ t: 'op', op });
+      else toast('Not connected to the host right now. Reconnecting…');
+    } else if (S.db) await writeGame(G => applyOp(G, myId(), nm, op), op.type === 'bot' ? op.rev : null);
+    if (op.type === 'act') S.ui.bait = null;
+  } catch (e) { toast(e.message || 'That didn’t work.'); }
+}
+// shared-store write (claude.ai only)
+async function writeGame(mut, expectRev) {
+  const ref = S.db.doc('games/' + S.code);
+  const snap = await ref.get();
+  const cur = snap && typeof snap.data === 'function' ? snap.data() : null;
+  if (!cur) throw new Error('That table no longer exists.');
+  if (expectRev != null && cur.rev !== expectRev) return;
+  const ng = mut(cur); if (!ng) return;
+  await ref.set(ng);
+}
+const act = a => send({ type: 'act', a });
+const sit = i => { if (nameOK()) send({ type: 'sit', i }); };
+const stand = i => send({ type: 'stand', i });
+const addBot = i => send({ type: 'addbot', i });
+const setSeats = n => send({ type: 'nseats', n });
+const startGame = () => send({ type: 'start' });
+const botTakeover = i => send({ type: 'takeover', i });
+const reclaim = i => send({ type: 'reclaim', i });
+function rematch() { if (S.mode === 'local') { startPractice(S.G.seats.length); return; } send({ type: 'rematch' }); }
+
+function newTable(code) {
+  const seats = Array.from({ length: S.ui.nseats }, emptySeat);
+  seats[0] = { kind: 'human', uid: myId(), name: S.name.trim().slice(0, 20) };
+  return { code, status: 'lobby', hostId: myId(), seats, nseats: S.ui.nseats, state: '', rev: 1, createdAt: Date.now(), updatedAt: Date.now() };
+}
+async function createTable() {
+  if (!nameOK()) return;
+  const code = genCode();
+  if (NET() === 'p2p') { hostTable(newTable(code)); return; }
+  try { await S.db.doc('games/' + code).set(newTable(code)); openTable(code); } catch (e) { S.err = 'Couldn’t open a table: ' + (e.message || 'try again.'); render(); }
+}
+function openTable(code) {
+  if (NET() === 'p2p') { if (!nameOK()) { S.ui.join = code; render(); return; } joinP2P(code); return; }
+  closeTable();
+  S.mode = 'online'; S.code = code; S.view = 'table'; S.G = null; S.st = null; S.err = ''; S.chat = [];
+  ls.set('hilt.last', JSON.stringify({ code, at: Date.now() }));
+  try { history.replaceState(null, '', '#join-' + code); } catch (e) {}
+  render();
+  const t = setTimeout(() => { if (!S.G && S.code === code) { S.err = 'Still looking for table ' + code + '…'; render(); } }, 10000);
+  S.unsub = S.db.doc('games/' + code).onSnapshot(snap => {
+    clearTimeout(t);
+    const g = snap && typeof snap.data === 'function' ? snap.data() : null;
+    if (!g) { S.err = 'No table with code ' + code + '.'; S.view = 'home'; closeTable(); render(); return; }
+    setGame(g);
+  }, () => { S.err = 'Lost the connection to the table.'; render(); });
+  try { S.chatUnsub = S.db.collection('chats/' + code + '/msgs').orderBy('ts', 'desc').limit(60).onSnapshot(q => { const n = S.chat.length; S.chat = q.docs.map(d => d.data()).reverse(); const fresh = S.chat.length && S.chat[S.chat.length - 1].uid !== myId(); if (S.view === 'table') { if (S.G && S.G.status !== 'lobby' && !S.ui.panels.chat && n && fresh) { S.unread = true; render(); } else renderChat(); } }, () => {}); } catch (e) {}
+}
+function closeTable() { try { S.unsub && S.unsub(); } catch (e) {} try { S.chatUnsub && S.chatUnsub(); } catch (e) {} S.unsub = S.chatUnsub = null; clearTimeout(botTimer); netClose(); }
+function leave() {
+  if (S.net && S.net.host && S.G && S.G.status !== 'done') ls.set('hilt.hosted', JSON.stringify(Object.assign({}, S.G, { savedAt: Date.now() })));
+  closeTable(); S.view = 'home'; S.mode = null; S.G = null; S.st = null; S.code = null; S.chat = [];
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} render();
+}
+function nameOK() { if (!S.name.trim()) { toast('Enter your name first.'); const i = $('#name'); i && i.focus(); return false; } return true; }
+const isHost = () => S.G && S.G.hostId === myId();
+
+// ---------- peer-to-peer tables ----------
+const PEER_PREFIX = 'hilt-card-table-';
+const OFFLINE_GRACE_MS = 10000;
+function peerOptions() {
+  // STUN finds a direct route; TURN relays when a direct route is blocked (mobile carriers,
+  // work or school Wi-Fi, strict home routers).
+  const ice = [
+    { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp', 'turns:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
+  let extra = []; try { const v = JSON.parse(ls.get('hilt.ice') || 'null'); if (Array.isArray(v)) extra = v; } catch (e) {}
+  if (Array.isArray(S.siteIce) && S.siteIce.length) extra = S.siteIce.concat(extra);
+  const o = Object.assign({ debug: 0, config: { iceServers: extra.concat(ice), iceCandidatePoolSize: 4 } }, window.HILT_PEER || {});
+  try { const q = new URLSearchParams(location.search); if (q.get('peerhost')) { o.host = q.get('peerhost'); o.port = +(q.get('peerport') || 9000); o.path = q.get('peerpath') || '/'; o.secure = q.get('peersecure') === '1'; } } catch (e) {}
+  return o;
+}
+// the site's own relay (e.g. Cloudflare TURN served by a Netlify function), fetched once per 12 hours; harmless if absent
+let siteIceP = null;
+const loadSiteIce = () => siteIceP || (siteIceP = (async () => {
+  if (!/^https?:$/.test(location.protocol)) { S.siteIceState = 'n/a'; return; }
+  try {
+    const c = JSON.parse(ls.get('hilt.siteIce') || 'null');
+    if (c && c.exp > Date.now() && Array.isArray(c.ice)) { S.siteIce = c.ice; S.siteIceState = 'ok'; return; }
+    const r = await fetch(window.HILT_ICE_URL || '/api/hilt-ice', { cache: 'no-store' });
+    if (!r.ok) { S.siteIceState = 'none'; return; }
+    const d = await r.json();
+    if (d.iceServers && !Array.isArray(d.iceServers)) d.iceServers = [d.iceServers];
+    if (!Array.isArray(d.iceServers) || !d.iceServers.length) { S.siteIceState = 'none'; return; }
+    S.siteIce = d.iceServers; S.siteIceState = 'ok'; ls.set('hilt.siteIce', JSON.stringify({ ice: d.iceServers, exp: Date.now() + 12 * 3600e3 }));
+  } catch (e) { S.siteIceState = 'none'; }
+})());
+const withIce = f => (...a) => { Promise.race([loadSiteIce(), new Promise(r => setTimeout(r, 2500))]).then(() => f(...a)); };
+
+function redactFor(G, uid) {
+  if (!G.state) return G;
+  const st = JSON.parse(G.state), seat = G.seats.findIndex(s => s.kind === 'human' && s.uid === uid);
+  st.hands = st.hands.map((h, i) => i === seat ? h : h.map(() => '??'));
+  st.deck = st.deck.map(() => '??');
+  return Object.assign({}, G, { state: JSON.stringify(st) });
+}
+function netOnline() {
+  const n = S.net; if (!n) return null;
+  if (n.host) {
+    const live = [...n.conns.values()].filter(c => c.uid && c.open).map(c => c.uid), now = Date.now();
+    const grace = Object.entries(n.gone || {}).filter(([u, t]) => now - t < OFFLINE_GRACE_MS && !live.includes(u)).map(([u]) => u);
+    return [myId()].concat(live, grace);
+  }
+  return n.online || [];
+}
+function hostBroadcast() {
+  const n = S.net; if (!n || !n.host || !S.G) return;
+  const online = netOnline();
+  for (const [conn, info] of n.conns) if (info.open && info.uid) { try { conn.send({ t: 'state', g: redactFor(S.G, info.uid), online }); } catch (e) {} }
+}
+function saveHosted() { try { if (S.G) localStorage.setItem('hilt.hosted', JSON.stringify(Object.assign({}, S.G, { savedAt: Date.now() }))); } catch (e) {} }
+function hostApply(uid, name, op) {
+  let ng;
+  try { ng = applyOp(S.G, uid, name, op); } catch (e) { return e.message; }
+  if (!ng) return null;
+  S.G = ng; saveHosted(); hostBroadcast(); setGame(ng);
+  return null;
+}
+function chatMsg(uid, name, text) { return { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), uid, name: String(name || 'Player').slice(0, 20), text: String(text || '').trim().slice(0, 300), ts: Date.now() }; }
+function chatPush(m) {
+  if (!m || !m.text) return;
+  S.chat.push(m); if (S.chat.length > 80) S.chat.splice(0, S.chat.length - 80);
+  if (m.uid !== myId() && S.G && S.G.status !== 'lobby' && !S.ui.panels.chat) { S.unread = true; render(); } else renderChat();
+}
+function hostChatRelay(m) { if (!m.text) return; chatPush(m); for (const [c, inf] of S.net.conns) if (inf.open) { try { c.send({ t: 'chat', msg: m }); } catch (e) {} } }
+function netClose() {
+  const n = S.net; if (!n) return;
+  S.net = null; clearTimeout(n.retry); clearTimeout(n.watch); clearTimeout(n.svcWatch); clearTimeout(n.svcRetry); clearInterval(n.pinger);
+  try { n.peer && n.peer.destroy(); } catch (e) {}
+}
+const hostTable = withIce(hostTable0);
+function hostTable0(G, resumed) {
+  netClose();
+  const code = G.code;
+  const peer = new window.Peer(PEER_PREFIX + code, peerOptions());
+  const n = S.net = { host: true, peer, conns: new Map(), code, svc: 'contacting', resumed: !!resumed };
+  n.pinger = setInterval(() => { if (S.net !== n) return; for (const [c, inf] of n.conns) if (inf.open) { try { c.send({ t: 'ping' }); } catch (e) {} } }, 5000);
+  n.svcWatch = setTimeout(() => { if (S.net === n && !n.ready) { n.svc = 'slow'; render(); } }, 10000);
+  S.mode = 'online'; S.code = code; S.view = 'table'; S.chat = S.chat || [];
+  ls.set('hilt.last', JSON.stringify({ code, at: Date.now(), host: true }));
+  try { history.replaceState(null, '', '#join-' + code); } catch (e) {}
+  S.G = G; saveHosted(); setGame(G);
+  peer.on('open', () => { clearTimeout(n.svcWatch); clearTimeout(n.svcRetry); n.svc = 'ok'; n.svcErr = ''; n.ready = true; render(); scheduleBots(); });
+  peer.on('connection', conn => {
+    const info = { uid: null, name: '', open: false };
+    n.conns.set(conn, info);
+    conn.on('open', () => { info.open = true; });
+    conn.on('data', msg => {
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.t === 'hello') {
+        info.uid = String(msg.uid || '').slice(0, 40); info.name = String(msg.name || 'Player').slice(0, 20);
+        // a returning player keeps their seat; from a new browser or device, match them by name to a seat whose player isn't connected
+        const g = S.G;
+        if (g && !g.seats.some(x => x.uid === info.uid)) {
+          const live = netOnline(), norm = s => String(s || '').trim().toLowerCase();
+          const k = g.seats.findIndex(x => x.kind === 'human' && x.uid && norm(x.name) === norm(info.name) && !live.includes(x.uid) && x.uid !== myId());
+          if (k >= 0) { const ng = H.clone(g); ng.seats[k].uid = info.uid; ng.rev = (ng.rev || 0) + 1; S.G = ng; saveHosted(); setGame(ng); }
+        }
+        try { conn.send({ t: 'chatlog', msgs: S.chat.slice(-80) }); } catch (e) {}
+        hostBroadcast(); render(); return;
+      }
+      if (msg.t === 'chat' && info.uid) { hostChatRelay(chatMsg(info.uid, info.name, msg.text)); return; }
+      if (msg.t === 'op' && info.uid && msg.op && typeof msg.op === 'object') {
+        if (msg.op.type === 'bot') return; // only the host runs bots
+        const err = hostApply(info.uid, info.name, msg.op);
+        if (err) try { conn.send({ t: 'error', message: err }); } catch (e) {}
+      }
+    });
+    conn.on('close', () => {
+      info.open = false; n.conns.delete(conn);
+      if (info.uid) { n.gone = n.gone || {}; n.gone[info.uid] = Date.now(); setTimeout(() => { if (S.net === n) { hostBroadcast(); render(); } }, OFFLINE_GRACE_MS + 300); }
+      hostBroadcast(); render();
+    });
+    conn.on('error', () => {});
+  });
+  peer.on('disconnected', () => { if (S.net === n) setTimeout(() => { try { peer.reconnect(); } catch (e) {} }, 1500); });
+  peer.on('error', e => {
+    if (S.net !== n) return;
+    if (e.type === 'unavailable-id') {
+      if (S.G.status === 'lobby' && !n.ready && !n.resumed) { const ng = H.clone(S.G); ng.code = genCode(); hostTable0(ng); }
+      else { toast('Waiting for code ' + code + ' to free up…'); clearTimeout(n.retry); n.retry = setTimeout(() => { if (S.net === n) hostTable0(S.G, true); }, 4000); }
+      return;
+    }
+    n.svcErr = e.type; render();
+    if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error' || e.type === 'socket-closed') {
+      clearTimeout(n.svcRetry); n.svcRetry = setTimeout(function again() { if (S.net !== n || n.svc === 'ok' && !n.svcErr) return; try { peer.reconnect(); } catch (e2) {} n.svcRetry = setTimeout(again, 8000); }, 3000);
+    }
+  });
+}
+function resumeHosting() {
+  let g = null; try { g = JSON.parse(localStorage.getItem('hilt.hosted') || 'null'); } catch (e) {}
+  if (!g) return;
+  // a resumed host takes over the host seat
+  const old = g.hostId; g.seats.forEach(s => { if (s.uid === old) s.uid = myId(); }); g.hostId = myId();
+  S.chat = []; hostTable(g, true);
+}
+const joinP2P = withIce(joinP2P0);
+function joinP2P0(code) {
+  netClose();
+  ls.set('hilt.last', JSON.stringify({ code, at: Date.now() }));
+  const peer = new window.Peer(peerOptions());
+  const n = S.net = { host: false, peer, code, online: [], svc: 'contacting' };
+  n.svcWatch = setTimeout(() => { if (S.net === n && n.svc !== 'ok') { n.svc = 'slow'; render(); } }, 10000);
+  S.mode = 'online'; S.code = code; S.G = null; S.st = null; S.view = 'table'; S.err = ''; S.chat = [];
+  try { history.replaceState(null, '', '#join-' + code); } catch (e) {}
+  render();
+  const connect = () => {
+    if (S.net !== n) return;
+    try { if (n.conn) n.conn.close(); } catch (e) {}
+    const conn = peer.connect(PEER_PREFIX + code, { reliable: true });
+    n.conn = conn; n.tries = (n.tries || 0) + 1; n.link = false; n.ice = '';
+    setTimeout(() => { const pc = conn.peerConnection; if (pc) pc.addEventListener('iceconnectionstatechange', () => { if (S.net === n && n.conn === conn) { n.ice = pc.iceConnectionState; render(); } }); }, 0);
+    clearTimeout(n.watch);
+    n.watch = setTimeout(() => { if (S.net !== n || n.conn !== conn || conn.open) return; if (n.tries >= 3) n.failed = true; render(); connect(); }, 12000);
+    conn.on('error', () => {});
+    conn.on('open', () => { clearTimeout(n.watch); n.link = true; n.tries = 0; n.failed = false; n.lost = false; conn.send({ t: 'hello', uid: myId(), name: S.name.trim().slice(0, 20) }); render(); });
+    conn.on('data', msg => {
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.t === 'state') { n.online = msg.online || []; setGame(msg.g); }
+      else if (msg.t === 'chatlog') { S.chat = Array.isArray(msg.msgs) ? msg.msgs : []; renderChat(); }
+      else if (msg.t === 'chat') chatPush(msg.msg);
+      else if (msg.t === 'error') toast(msg.message);
+    });
+    conn.on('close', () => {
+      if (S.net !== n || n.conn !== conn) return;
+      n.lost = true; n.link = false; render(); toast('Lost the connection to the host. Reconnecting…');
+      clearTimeout(n.retry); n.retry = setTimeout(connect, 3000);
+    });
+  };
+  peer.on('open', () => { clearTimeout(n.svcWatch); n.svc = 'ok'; n.svcErr = ''; render(); connect(); });
+  peer.on('disconnected', () => { if (S.net === n) setTimeout(() => { try { peer.reconnect(); } catch (e) {} }, 1500); });
+  peer.on('error', e => {
+    if (S.net !== n) return;
+    if (e.type === 'peer-unavailable') {
+      if (S.G) { n.lost = true; n.link = false; render(); clearTimeout(n.retry); n.retry = setTimeout(connect, 4000); return; }
+      netClose(); S.err = 'No open table with code ' + code + '. Check the code, and make sure the host still has the page open.'; S.view = 'home'; S.mode = null; render();
+      return;
+    }
+    n.svcErr = e.type; render();
+  });
+}
+// coming back mid-game: the host picks the table straight back up and players rejoin, no code to type
+function autoRejoin() {
+  if (NET() !== 'p2p' || S.view !== 'home' || S.net) return;
+  const inv = (location.hash.match(/^#join-([A-Z0-9]{5})$/i) || [])[1];
+  const fresh = t => t && Date.now() - t < 8 * 3600e3;
+  let hosted = null; try { hosted = JSON.parse(localStorage.getItem('hilt.hosted') || 'null'); } catch (e) {}
+  if (inv) {
+    const code = inv.toUpperCase();
+    if (hosted && hosted.code === code && hosted.status !== 'done') { resumeHosting(); return; }
+    if (S.name.trim()) { toast('Joining table ' + code + '…'); joinP2P(code); } else { S.ui.join = code; S.err = 'Enter your name at the top, then press Join to take a seat at table ' + code + '.'; render(); }
+    return;
+  }
+  if (hosted && hosted.status !== 'done' && fresh(hosted.savedAt)) { toast('Picking your table back up…'); resumeHosting(); return; }
+  let last = null; try { last = JSON.parse(ls.get('hilt.last') || 'null'); } catch (e) {}
+  if (last && last.code && !last.host && fresh(last.at) && S.name.trim()) { toast('Rejoining table ' + last.code + '…'); joinP2P(last.code); }
+}
+// connection status, step by step, so a stuck connection shows where it is stuck
+function netPill() {
+  const n = S.net; if (!n) return '';
+  if (n.host) { const c = [...n.conns.values()].filter(x => x.open && x.uid).length; return `<span class="tag ${n.svc === 'ok' && !n.svcErr ? '' : 'org'}" title="You are hosting: players connect to your browser. Keep this page open.">${n.svc === 'ok' && !n.svcErr ? `Hosting · ${c} connected` : n.svc === 'slow' || n.svcErr ? 'Connection service unreachable' : 'Starting…'}</span>`; }
+  return `<span class="tag ${n.link ? '' : 'org'}">${n.link ? 'Connected' : n.lost ? 'Reconnecting…' : 'Connecting…'}</span>`;
+}
+function netDiag() {
+  const n = S.net; if (!n || (n.host ? n.svc === 'ok' && !n.svcErr : n.link)) return '';
+  const row = (ok, label, detail) => `<div>${ok === true ? '✓' : ok === false ? '✗' : '…'} ${label}${detail ? ' · ' + esc(detail) : ''}</div>`;
+  const svcOk = n.svc === 'ok' && !n.svcErr ? true : (n.svc === 'slow' || n.svcErr) ? false : null;
+  let h = row(svcOk, 'Connection service', n.svcErr ? 'error: ' + n.svcErr : n.svc === 'slow' ? 'no answer after 10 s (down, or blocked by this network, browser setting or extension)' : svcOk ? 'connected' : 'contacting…');
+  if (!n.host) h += row(n.link ? true : n.failed ? false : null, 'Host', n.link ? 'linked' : n.tries ? `reaching host, attempt ${n.tries}${n.ice ? ', network check: ' + n.ice : ''}` : 'waiting for the connection service');
+  if (n.failed) h += '<div class="note">Can’t reach the host directly. Make sure the host still has the page open. If you’re on work, school or mobile data, a relay server can help: see “Relay server” on the home page.</div>';
+  return `<div class="diag">${h}</div>`;
+}
+function iceBox() {
+  const cur = ls.get('hilt.ice') || '';
+  return `<details class="icebox" ${S.ui.iceOpen ? 'open' : ''}><summary>Relay server (advanced)${cur ? ' · saved ✓' : ''}${S.siteIceState === 'ok' ? ' · site relay ✓' : ''}</summary>
+    <p class="note">Only needed if players can’t connect. Paste the ICE server list from a free TURN account (for example from metered.ca), then save. Everyone at the table should add the same list.</p>
+    <textarea id="icejson" rows="4" placeholder='[{"urls":"turn:example.com:443","username":"...","credential":"..."}]'>${esc(S.ui.iceDraft != null ? S.ui.iceDraft : cur)}</textarea>
+    <div class="row"><button class="btn sm pri" data-act="ice-save">Save</button><button class="btn sm ghost" data-act="ice-clear">Clear</button></div></details>`;
+}
+
+// ---------- bots ----------
+let botTimer = null;
+function scheduleBots() {
+  clearTimeout(botTimer);
+  const G = S.G, st = S.st; if (!G || !st || st.phase === 'over' || G.status !== 'playing') return;
+  if (S.net && !S.net.host) return; // guests never run bots
+  const w = H.whoActs(st); if (w == null || !G.seats[w] || G.seats[w].kind !== 'bot') return;
+  let delay = 850 + Math.random() * 500;
+  if (S.mode === 'online' && !S.net && !isHost()) { if (mySeat() < 0) return; delay = Math.max(0, 7000 - (Date.now() - (G.updatedAt || 0))) + 400 + mySeat() * 600; }
+  const rev = G.rev;
+  botTimer = setTimeout(() => { if (S.G && S.G.rev === rev) send({ type: 'bot', rev }); }, delay);
+}
+
+// ---------- chat ----------
+async function sendChat(text) {
+  text = text.trim().slice(0, 300); if (!text || S.mode !== 'online') return;
+  if (S.net) { if (S.net.host) hostChatRelay(chatMsg(myId(), S.name, text)); else if (S.net.conn && S.net.conn.open) S.net.conn.send({ t: 'chat', text }); else toast('Not connected right now.'); return; }
+  const m = chatMsg(myId(), S.name, text);
+  try { await S.db.doc('chats/' + S.code + '/msgs/' + m.id).set(m); } catch (e) { toast('Message didn’t send.'); }
+}
+function renderChat() { const b = $('#chatbox'); if (!b) return; b.innerHTML = chatHTML(); b.scrollTop = b.scrollHeight; }
+const chatHTML = () => S.chat.length ? S.chat.map(m => `<div><b>${esc(m.name)}</b> ${esc(m.text)}</div>`).join('') : '<span class="note">No messages yet. Deals are allowed, never binding.</span>';
+
+// ---------- turn alert ----------
+const BASE_TITLE = document.title; let tt = null;
+function turnTitle() {
+  const st = S.st, mine = st && S.view === 'table' && st.phase !== 'over' && H.whoActs(st) === mySeat() && mySeat() >= 0;
+  if (mine && document.hidden) { if (!tt) { let on = false; tt = setInterval(() => { on = !on; document.title = on ? '● Your turn — Hilt' : BASE_TITLE; }, 900); } }
+  else if (tt) { clearInterval(tt); tt = null; document.title = BASE_TITLE; }
+}
+document.addEventListener('visibilitychange', turnTitle);
+
+// ---------- player colors, scoreboards, effects, card tips ----------
+const PCOL = ['#2ec4b6', '#5b8cff', '#a6d94b', '#a77bff', '#f5c518', '#ff5d5d'];
+const pc = s => PCOL[s % PCOL.length];
+const dot = s => `<i class="pdot" style="--pc:${pc(s)}"></i>`;
+function needToWin(ch) { return Math.min(...H.COLORS.map(c => 3 - ch[c]), H.COLORS.filter(c => !ch[c]).length); }
+function scoresHTML(st, names, me) {
+  const n = st.n, seats = [...Array(n).keys()];
+  const order = seats.slice().sort((a, b) => needToWin(st.chips[a]) - needToWin(st.chips[b]) || (st.chips[b].M + st.chips[b].O + st.chips[b].W) - (st.chips[a].M + st.chips[a].O + st.chips[a].W) || a - b);
+  const stand = order.map((s, i) => {
+    const need = needToWin(st.chips[s]);
+    const wins = H.COLORS.filter(c => H.wouldWinGame(st.chips[s], c));
+    return `<div class="sr" style="--pc:${pc(s)}"><span class="rk">${i + 1}</span>${dot(s)}<span class="nm">${esc(names[s])}</span>${chipsOf(st.chips[s])}<span class="need ${need === 1 ? 'hot' : ''}">${st.phase === 'over' && st.winner === s ? 'won' : need === 1 ? `1 away ${wins.map(c => chipHTML(c, 12)).join('')}` : need + ' away'}</span></div>`;
+  }).join('');
+  let battle;
+  if (st.phase === 'battle') {
+    const str = H.strengths(st), lead = H.leader(st), max = Math.max(1, ...str);
+    const only = !!S.ui.onlyStr;
+    const rows = seats.slice().sort((a, b) => str[b] - str[a] || (a === lead ? -1 : b === lead ? 1 : 0)).filter(s => !only || str[s] > 0);
+    battle = rows.map(s => `<div class="br ${st.passed[s] ? 'pz' : ''} ${s === lead ? 'lead' : ''}" style="--pc:${pc(s)}">${dot(s)}<span class="nm">${esc(names[s])}</span><span class="bar"><i style="width:${Math.round(100 * str[s] / max)}%"></i></span><b class="bv">${str[s]}</b>${s === lead ? '<span class="tag mag">leads</span>' : st.passed[s] ? '<span class="tag">passed</span>' : ''}</div>`).join('') || '<p class="note">No one has any strength yet.</p>';
+    battle += `<label class="chk"><input type="checkbox" data-act="onlystr" ${only ? 'checked' : ''}> Only players with strength</label>`;
+  } else battle = `<p class="note">${st.phase === 'over' ? 'Game over.' : esc(names[st.favor]) + ' is choosing the next chip.'}</p>`;
+  return `<aside class="scores">
+    <section class="sbox"><h4>Standings</h4>${stand}</section>
+    <section class="sbox"><h4>This battle${st.chip && st.phase === 'battle' ? ' ' + chipHTML(st.chip, 14) : ''}</h4>${battle}</section>
+    <section class="sbox"><h4>Effects in play</h4>${effectsHTML(st, names)}</section></aside>`;
+}
+function effectsHTML(st, names) {
+  const pills = [];
+  if (st.phase === 'battle') {
+    if (st.chip) { const w = [...Array(st.n).keys()].filter(s => H.wouldWinGame(st.chips[s], st.chip)); pills.push(`<div class="fx stake">${chipHTML(st.chip, 14)}<span><b>At stake:</b> ${H.CNAME[st.chip]} chip${w.length ? ` — wins the game for ${w.map(s => `<b style="color:${pc(s)}">${esc(names[s])}</b>`).join(', ')}` : ''}</span></div>`); }
+    if (st.winter != null) pills.push(`<div class="fx k-WINTER">${GLYPH.WINTER}<span><b>Winter</b> (${esc(names[st.winter])}): every force card is worth 1 this battle.</span></div>`);
+    for (const s of st.furyBy) pills.push(`<div class="fx k-FURY">${GLYPH.FURY}<span><b>Fury</b> — <b style="color:${pc(s)}">${esc(names[s])}</b>'s force cards count double${st.winter != null ? ' (2 each under Winter)' : ''}.</span></div>`);
+    for (let s = 0; s < st.n; s++) { const k = st.rows[s].filter(c => H.kind(c) === 'LEGEND').length; if (k) pills.push(`<div class="fx k-LEGEND">${GLYPH.LEGEND}<span><b>Legend</b> — <b>${esc(names[s])}</b> +${10 * k}, unaffected by Winter and Fury.</span></div>`); }
+    pills.push(`<div class="fx fav">${HILT_SVG}<span><b>Favor</b> — ${esc(names[st.favor])} +1 and wins clockwise ties.</span></div>`);
+  }
+  // public count of what has hit the table this round
+  const seen = {}; const pool = st.discard.concat(...st.rows);
+  for (const c of pool) { const k = H.kind(c); seen[k] = (seen[k] || 0) + 1; }
+  const TOT = [['F10', '10s', 8], ['LEGEND', 'Legend', 3], ['FURY', 'Fury', 6], ['WINTER', 'Winter', 3], ['CROWS', 'Crows', 3], ['DOVES', 'Doves', 3], ['BAIT', 'Bait', 15]];
+  const cnt = `<div class="seen"><span class="note">Seen this round</span>${TOT.map(([k, l, t]) => `<span class="sc ${seen[k] ? 'on' : ''}" title="${seen[k] || 0} of ${t} ${l} played or shown this round">${l} <b>${seen[k] || 0}</b>/${t}</span>`).join('')}</div>`;
+  return (pills.join('') || '<p class="note">No effects yet.</p>') + cnt;
+}
+// ---- card tip bubble ----
+function tipHTML(c, loc) {
+  const st = S.st, k = H.kind(c), force = H.isForce(c);
+  const head = force ? `<b class="tn">Force ${H.faceVal(c)}</b>` : `<b class="tn">${H.FATE[k].name}${k === 'LEGEND' ? ' · 10' : ''}</b>`;
+  const body = force ? 'Adds its value to your strength this battle.' : H.FATE[k].text;
+  let extra = '';
+  const names = S.G ? seatNames(S.G) : [];
+  if (st && /^row:\d+$/.test(loc)) {
+    const s = +loc.split(':')[1];
+    if (force) { const v = H.cardVal(st, s, c); const why = [st.winter != null ? 'Winter makes it 1' : '', st.furyBy.includes(s) ? 'Fury doubles it' : ''].filter(Boolean).join(', '); extra = `<div class="tx">Worth <b>${v}</b> right now${why ? ' — ' + why : ''}.</div>`; }
+    else if (k === 'FURY') { const sum = st.rows[s].filter(H.isForce).reduce((a, x) => a + H.cardVal(st, s, x), 0); extra = `<div class="tx">Doubling ${esc(names[s])}'s force cards: they total <b>${sum}</b>.</div>`; }
+  } else if (st && loc === 'mid') extra = `<div class="tx">Played by ${esc(names[st.winter])}. All force cards on the table are worth 1 (2 with Fury).</div>`;
+  else if (st && loc === 'hand' && st.phase === 'battle') extra = previewTip(st, c);
+  return `<div class="th">${head}</div><div>${esc(body)}</div>${extra}`;
+}
+function previewTip(st, c) {
+  const me = mySeat(); if (me < 0) return '';
+  const k = H.kind(c), names = seatNames(S.G);
+  if (k === 'FURY' && st.furyBy.includes(me)) return '<div class="tx warn">You already have a Fury out this battle.</div>';
+  if (k === 'WINTER' && st.winter != null) return '<div class="tx warn">Winter is already in play this battle.</div>';
+  if (st.passed[me]) return '<div class="tx warn">You’ve passed this battle.</div>';
+  const pre = H.whoActs(st) === me ? 'If you play it now' : 'If you play it on your turn';
+  const before = H.strength(st, me), lead0 = H.leader(st);
+  if (k === 'CROWS') return `<div class="tx">${pre}: the battle ends and <b>${lead0 === me ? 'you win' : esc(names[lead0]) + ' wins'}</b> it.</div>`;
+  if (k === 'DOVES') return `<div class="tx">${pre}: the battle ends with no winner; the chip stays up.</div>`;
+  const t = H.clone(st);
+  t.hands[me] = t.hands[me].filter(x => x !== c);
+  if (k === 'WINTER') t.winter = me;
+  else if (k === 'BAIT') { const tg = H.baitTargets(t, me).sort((a, b) => H.faceVal(b) - H.faceVal(a))[0]; if (!tg) return `<div class="tx">${pre}: nothing to take back; it’s just discarded.</div>`; t.rows[me] = t.rows[me].filter(x => x !== tg); }
+  else t.rows[me].push(c);
+  if (k === 'FURY') t.furyBy.push(me);
+  const after = H.strength(t, me), lead = H.leader(t);
+  const delta = after - before;
+  return `<div class="tx">${pre}: your strength <b>${before} → ${after}</b> (${delta >= 0 ? '+' : ''}${delta}). ${lead === me ? '<b class="good">You’d lead.</b>' : `${esc(names[lead])} would lead with ${H.strength(t, lead)}.`}${k === 'WINTER' ? ' Everyone’s force cards drop to 1.' : ''}</div>`;
+}
+const tipEl = (() => { const d = document.createElement('div'); d.className = 'tip'; d.setAttribute('role', 'tooltip'); d.hidden = true; document.body.appendChild(d); return d; })();
+let tipFor = null;
+function showTip(el) {
+  const [c, loc] = el.dataset.tip.split('|');
+  tipEl.innerHTML = tipHTML(c, loc); tipEl.hidden = false; tipFor = el;
+  const r = el.getBoundingClientRect(), tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  let x = r.left + r.width / 2 - tw / 2; x = Math.max(8, Math.min(innerWidth - tw - 8, x));
+  let y = r.top - th - 10; let below = false; if (y < 8) { y = r.bottom + 10; below = true; }
+  tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px'; tipEl.classList.toggle('below', below);
+  tipEl.style.setProperty('--ax', (r.left + r.width / 2 - x) + 'px');
+}
+function hideTip() { tipEl.hidden = true; tipFor = null; }
+document.addEventListener('pointerover', e => { if (e.pointerType !== 'mouse') return; const el = e.target.closest('[data-tip]'); if (el && el !== tipFor) showTip(el); else if (!el && tipFor) hideTip(); });
+document.addEventListener('focusin', e => { const el = e.target.closest('[data-tip]'); if (el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+document.addEventListener('scroll', hideTip, true);
+// touch: press and hold a card to see its bubble
+let lpT = null, lpFired = false;
+document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; const el = e.target.closest('[data-tip]'); hideTip(); if (!el) return; lpFired = false; lpT = setTimeout(() => { lpFired = true; showTip(el); }, 450); });
+document.addEventListener('pointerup', () => clearTimeout(lpT));
+document.addEventListener('pointercancel', () => clearTimeout(lpT));
+document.addEventListener('click', e => { if (lpFired) { e.stopPropagation(); e.preventDefault(); lpFired = false; } }, true);
+document.addEventListener('contextmenu', e => { if (e.target.closest('[data-tip]')) e.preventDefault(); });
+
+// ---------- views ----------
+function topBar(extra = '', noName) {
+  return `<header class="top"><div class="brand">${HILT_SVG.replace('<svg', '<svg style="color:var(--mag)"')}Hilt</div>${extra}<span class="grow"></span>
+    ${noName ? '' : `<label class="row note" for="name">Your name <input type="text" id="name" maxlength="20" value="${esc(S.name)}" placeholder="Name" style="width:140px"></label>`}</header>`;
+}
+function viewHome() {
+  const fan = ['F10.a', 'LEGEND.b', 'F3.c', 'WINTER.d', 'FURY.e', 'F6.f'];
+  const last = (() => { try { const l = JSON.parse(ls.get('hilt.last') || 'null'); return l && Date.now() - l.at < 8 * 3600e3 ? l : null; } catch (e) { return null; } })();
+  const minePlaying = S.mine.filter(g => g.seats && g.seats.some(s => s.uid === myId() || s.was === myId()));
+  const others = S.mine.filter(g => !minePlaying.includes(g));
+  const online = NET() !== 'off', p2p = NET() === 'p2p';
+  let hosted = null; try { hosted = JSON.parse(localStorage.getItem('hilt.hosted') || 'null'); } catch (e) {}
+  if (hosted && (hosted.status === 'done' || Date.now() - (hosted.savedAt || 0) > 24 * 3600e3)) hosted = null;
+  return `${topBar()}<main class="wrap">
+    <section class="hero">
+      <div><h1>Hilt<span>.</span></h1>
+        <p>Bluff, bait and overpower. Go around the table playing force and fate cards until everyone passes. Highest strength takes the chip. Collect three of one color, or one of each, to win. Just don't be the last one holding cards.</p>
+        <div class="row" style="margin-top:14px"><button class="btn pri" data-act="practice">Practice vs bots</button>
+        <label class="note row">Players <select id="pn" style="min-height:44px;border-radius:10px;background:#0f0a12;border:1px solid var(--line);padding:0 10px">${[2, 3, 4, 5, 6].map(n => `<option ${n === S.ui.practiceN ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
+      </div>
+      <div class="fan" aria-hidden="true">${fan.map((c, i) => cardHTML(c, { cls: '', attr: `style="--w:118px;transform:translateX(-50%) rotate(${(i - 2.5) * 11}deg)"` })).join('')}</div>
+    </section>
+    ${S.err ? `<div class="err">${esc(S.err)}</div>` : ''}
+    <section class="panels">
+      <div class="panel"><h3>Open a table</h3>
+        <p class="note">Start a table, share its five-letter code, fill empty seats with bots if you like.</p>
+        <div class="row"><label class="note row">Seats <select id="ns" style="min-height:44px;border-radius:10px;background:#0f0a12;border:1px solid var(--line);padding:0 10px">${[2, 3, 4, 5, 6].map(n => `<option ${n === S.ui.nseats ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <button class="btn org" data-act="create" ${online ? '' : 'disabled'}>Open table</button></div>
+        <h3 style="margin-top:16px">Join with a code</h3>
+        <div class="row"><input type="text" id="joincode" maxlength="5" placeholder="ABCDE" value="${esc(S.ui.join)}" style="width:120px;text-transform:uppercase;letter-spacing:.15em"><button class="btn" data-act="join" ${online ? '' : 'disabled'}>Join</button></div>
+        ${hosted && p2p ? `<p class="note" style="margin-top:10px">Your table <span class="code">${hosted.code}</span> is saved. <button class="btn sm pri" data-act="resume-host">Resume hosting</button></p>` : ''}
+        ${last && online && !(hosted && hosted.code === last.code) ? `<p class="note" style="margin-top:10px">Last table: <span class="code">${last.code}</span> <button class="btn sm" data-act="open" data-code="${last.code}">Rejoin</button></p>` : ''}
+        ${S.caps === 'loading' ? '<p class="note">Connecting…</p>' : !online ? '<p class="note">Online play couldn’t load its connection library (check your connection or an ad blocker). Practice still works.</p>' : ''}
+        ${p2p ? iceBox() : ''}
+      </div>
+      ${p2p ? `<div class="panel"><h3>How online works</h3><p class="note">The host’s browser runs the table. Open a table, then send friends the invite link or the five-letter code. Keep your page open while you play; if you close it, open the site again to pick the table back up.</p></div>` : `<div class="panel"><h3>Waiting for players</h3>
+        <div class="list">${S.open.length ? S.open.map(g => `<div class="li"><span class="code">${g.code}</span><span class="grow">${esc((g.seats.find(s => s.uid === g.hostId) || {}).name || 'Someone')}'s table · ${g.seats.filter(s => s.kind !== 'empty').length}/${g.seats.length}</span><button class="btn sm" data-act="open" data-code="${g.code}">Open</button></div>`).join('') : `<p class="note">${online ? 'No open tables right now. Open one and share the code.' : '—'}</p>`}</div>
+        ${minePlaying.length ? `<h3 style="margin-top:14px">Your games</h3><div class="list">${minePlaying.map(g => `<div class="li"><span class="code">${g.code}</span><span class="grow">${g.seats.map(s => esc(s.name)).join(', ')}</span><button class="btn sm pri" data-act="open" data-code="${g.code}">Rejoin</button></div>`).join('')}</div>` : ''}
+        ${others.length ? `<h3 style="margin-top:14px">Watch</h3><div class="list">${others.slice(0, 6).map(g => `<div class="li"><span class="code">${g.code}</span><span class="grow">${g.seats.map(s => esc(s.name)).join(', ')}</span><button class="btn sm ghost" data-act="open" data-code="${g.code}">Watch</button></div>`).join('')}</div>` : ''}
+      </div>`}
+      <div class="panel"><h3>The cards</h3>${refHTML()}</div>
+    </section>
+  </main>`;
+}
+function refHTML() {
+  return `<div class="ref"><div>${cardHTML('F6.r')}<span><b>Force 1–6, 10.</b> Add to your strength. 15 ones, 8 of each other.</span></div>
+  ${['LEGEND', 'FURY', 'WINTER', 'BAIT', 'CROWS', 'DOVES'].map(k => `<div>${cardHTML(k + '.r')}<span><b>${H.FATE[k].name}.</b> ${H.FATE[k].text}</span></div>`).join('')}
+  <div><span class="favor">${HILT_SVG}Favor</span><span>Battle winner takes it: picks the next chip and starts with +1. Ties: fewest cards, then highest single card, then clockwise from Favor.</span></div></div>`;
+}
+function viewLobby() {
+  const G = S.G, me = mySeat(), host = isHost();
+  const hostName = (G.seats.find(s => s.uid === G.hostId) || {}).name || 'The host';
+  const seated = G.seats.filter(s => s.kind !== 'empty').length;
+  return `<main class="wrap"><div class="panel">
+    <div class="row"><h3 style="margin:0">Table <span class="code" style="font-size:28px">${G.code}</span></h3><span class="grow"></span>
+    <button class="btn sm" data-act="copy">Copy invite</button></div>
+    ${netDiag()}
+    <p class="note">Share the invite link or the code: friends open this page, enter the code and take a seat. ${host ? 'You’re the host: add bots, set the number of seats, and start when ready.' : esc(hostName) + ' will start the game.'}</p>
+    ${host ? `<div class="row"><span class="note">Seats</span>${[2, 3, 4, 5, 6].map(n => `<button class="btn sm ${n === G.seats.length ? 'pri' : ''}" data-act="nseats" data-n="${n}">${n}</button>`).join('')}</div>` : ''}
+    <div class="seatsel">${G.seats.map((s, i) => `<div class="seatbox ${s.uid === myId() ? 'mine' : ''}"><span class="note">Seat ${i + 1}${i === 0 ? ' · Favor starts at random' : ''}</span>
+      ${s.kind === 'empty' ? `<b class="note">Empty</b><div class="row"><button class="btn sm pri" data-act="sit" data-i="${i}">Sit here</button>${host ? `<button class="btn sm" data-act="addbot" data-i="${i}">Add bot</button>` : ''}</div>`
+      : `<b>${esc(s.name)}${s.kind === 'bot' ? ' <span class="tag">Bot</span>' : ''}${s.uid === G.hostId ? ' <span class="tag mag">Host</span>' : ''}${offline(s) ? ' <span class="tag org">offline</span>' : ''}</b>
+        <div class="row">${s.uid === myId() ? `<button class="btn sm ghost" data-act="stand" data-i="${i}">Stand up</button>` : host ? `<button class="btn sm ghost" data-act="stand" data-i="${i}">Remove</button>` : ''}</div>`}</div>`).join('')}</div>
+    <div class="row" style="margin-top:14px">${host ? `<button class="btn org" data-act="start" ${seated >= 2 ? '' : 'disabled'}>Start game (${seated} players)</button>` : me < 0 ? '<span class="note">Pick a seat to play, or stay to watch.</span>' : '<span class="note">Waiting for the host to start…</span>'}
+    <span class="grow"></span><button class="btn ghost" data-act="leave">Leave</button></div>
+  </div>
+  <div class="panel" style="margin-top:14px"><h3>Table chat</h3><div class="chatbox" id="chatbox">${chatHTML()}</div><form class="row" data-form="chat"><input type="text" id="chatin" maxlength="300" placeholder="Say something" class="grow"><button class="btn sm">Send</button></form></div></main>`;
+}
+function statusLine(st, names, me) {
+  if (st.phase === 'over') return `<b>${esc(names[st.winner])}</b> ${/^you$/i.test(names[st.winner]) ? 'win' : 'wins'} the game!`;
+  const w = H.whoActs(st);
+  if (st.phase === 'choose') return w === me ? 'You hold the Favor. <b>Choose the chip</b> to battle over.' : `<b>${esc(names[w])}</b> is choosing the chip.`;
+  const alive = st.passed.filter(p => !p).length;
+  return (w === me ? '<b>Your turn.</b> Play a card or pass.' : `<b>${esc(names[w])}</b> is thinking…`) + (alive === 1 ? ' <span class="tag org">Everyone else passed</span>' : '');
+}
+// seat angle around the oval: you at the bottom, then clockwise (to your left first)
+function seatPos(k, n) { const a = (90 + 360 * k / n) * Math.PI / 180; return { c: Math.cos(a), s: Math.sin(a) }; }
+function plateHTML(st, G, s, names, me, p) {
+  const w = H.whoActs(st), seat = G.seats[s];
+  const x = 50 + p.c * 43, y = 50 + p.s * 45;
+  const hostCtl = isHost() && S.mode === 'online' && seat.kind === 'human' && seat.uid !== myId() ? `<button class="lnk" data-act="takeover" data-i="${s}">bot takes over</button>` : '';
+  const reclaimCtl = seat.kind === 'bot' && seat.was === myId() && S.mode === 'online' ? `<button class="lnk" data-act="reclaim" data-i="${s}">take seat back</button>` : '';
+  return `<div class="plate ${w === s ? 'turn' : ''} ${st.passed[s] && st.phase === 'battle' ? 'passed' : ''} ${s === me ? 'mine' : ''}" data-seat="${s}" style="left:clamp(64px,${x}%,calc(100% - 64px));top:${y}%;--pc:${pc(s)}">
+    <div class="pn"><span class="who">${esc(names[s])}${s === me && !/^you$/i.test(names[s]) ? ' (you)' : ''}</span>${seat.kind === 'bot' ? '<span class="tag">Bot</span>' : ''}${offline(seat) ? '<span class="tag org" title="Not connected right now">offline</span>' : ''}${st.phase === 'battle' && st.furyBy.includes(s) ? '<span class="tag org" title="Fury: force cards double">×2</span>' : ''}<span class="str" title="Strength this battle">${st.phase === 'battle' ? H.strength(st, s) : '·'}</span></div>
+    <div class="pm">${st.favor === s ? `<span class="favor" title="Favor: +1 strength, picks the next chip">${HILT_SVG}+1</span>` : ''}${chipsOf(st.chips[s])}<span class="hc" title="Cards in hand">${st.hands[s].length}<i></i></span>${st.passed[s] && st.phase === 'battle' ? '<span class="tag pz">Passed</span>' : ''}</div>
+    ${hostCtl}${reclaimCtl}</div>`;
+}
+function rowHTML(st, s, me, p, showLast) {
+  const nar = innerWidth < 600;
+  let pos;
+  if (nar) { const px = 50 + p.c * 43, py = 50 + p.s * 45; pos = `left:clamp(64px,${px}%,calc(100% - 64px));top:calc(${py}% ${p.s > 0.3 ? '- 66px' : '+ 62px'})`; }
+  else pos = `left:${50 + p.c * 25}%;top:${50 + p.s * 25}%`;
+  const baitMode = S.ui.bait && s === me && H.whoActs(st) === me;
+  let cards, cls = '';
+  if (showLast) { const L = st.last; cards = L.rows[s].map(c => cardHTML(c, { loc: 'last:' + s, attr: `data-cid="${c}"` })).join(''); cls = 'lastrow' + (L.winner === s ? ' won' : ''); }
+  else cards = st.rows[s].map(c => baitMode && H.isForce(c) ? cardHTML(c, { btn: true, loc: 'row:' + s, cls: 'pick', eff: H.cardVal(st, s, c), attr: `data-act="baitpick" data-card="${c}" data-cid="${c}"` }) : cardHTML(c, { loc: 'row:' + s, eff: H.cardVal(st, s, c), attr: `data-cid="${c}"` })).join('');
+  return `<div class="trow ${s === me ? 'mine' : ''} ${cls}" data-row="${s}" style="${pos};--pc:${pc(s)}">${cards}${showLast && st.last.winner === s ? '<span class="wonlbl">won</span>' : ''}</div>`;
+}
+function drawerHTML(st, names) {
+  const P = S.ui.panels;
+  const sec = (k, title, body) => P[k] ? `<section class="dsec"><div class="dh"><h3>${title}</h3><button class="lnk" data-act="panel" data-p="${k}" aria-label="Close ${title}">✕</button></div>${body}</section>` : '';
+  const any = P.chat || P.log || P.cards;
+  if (!any) return '';
+  return `<aside class="drawer">
+    ${S.mode === 'online' ? sec('chat', 'Chat', `<div class="chatbox" id="chatbox">${chatHTML()}</div><form class="row" data-form="chat"><input type="text" id="chatin" maxlength="300" placeholder="Make a deal…" class="grow"><button class="btn sm">Send</button></form>`) : ''}
+    ${sec('log', 'Log', `<div class="log" id="log">${st.log.slice(-40).map(([s, t]) => `<div>${s != null ? `<b style="color:${pc(s)}">${esc(names[s])}</b> ` : ''}${esc(t)}</div>`).join('')}</div>`)}
+    ${sec('cards', 'Cards', refHTML())}</aside>`;
+}
+const offline = seat => !!(S.net && seat && seat.kind === 'human' && seat.uid !== myId() && !(netOnline() || []).includes(seat.uid));
+function viewTable() {
+  const G = S.G, st = S.st;
+  if (!G) return `${topBar(`<span class="code">${esc(S.code || '')}</span>${netPill()}`)}<main class="wrap"><div class="panel"><h3>Table <span class="code">${esc(S.code || '')}</span></h3><p class="note">${esc(S.err || (S.net ? 'Connecting to the host…' : 'Opening table…'))}</p>${netDiag()}<button class="btn" data-act="leave">Back</button></div></main>`;
+  const playing = G.status === 'playing' || G.status === 'done';
+  const P = S.ui.panels;
+  const toggles = playing && st ? `<span class="tgl">${S.mode === 'online' ? `<button class="btn sm ${P.chat ? 'on' : 'ghost'}" data-act="panel" data-p="chat" aria-pressed="${!!P.chat}">Chat${S.unread && !P.chat ? '<i class="dot"></i>' : ''}</button>` : ''}<button class="btn sm ${P.scores !== false ? 'on' : 'ghost'}" data-act="panel" data-p="scores" aria-pressed="${P.scores !== false}">Scores</button><button class="btn sm ${P.log ? 'on' : 'ghost'}" data-act="panel" data-p="log" aria-pressed="${!!P.log}">Log</button><button class="btn sm ${P.cards ? 'on' : 'ghost'}" data-act="panel" data-p="cards" aria-pressed="${!!P.cards}">Cards</button></span>` : '';
+  const bar = topBar(`${S.mode === 'online' ? `<span class="tag">Table <span class="code">${G.code}</span></span>${netPill()}` : '<span class="tag">Practice</span>'}${toggles}<button class="btn sm ghost" data-act="leave">Leave</button>`, playing);
+  if (G.status === 'lobby' || !st) return bar + viewLobby();
+  const names = seatNames(G), me = mySeat(), w = H.whoActs(st);
+  const view = me >= 0 ? me : 0;
+  const myTurn = me >= 0 && w === me;
+  const L = me >= 0 ? H.legal(st, me) : [];
+  const showLast = st.last && st.phase !== 'over' && st.rows.every(r => !r.length) && st.winter == null;
+  const seats = [...Array(st.n).keys()].map(s => ({ s, p: seatPos((s - view + st.n) % st.n, st.n) }));
+  const lead = st.phase === 'battle' && !showLast ? H.leader(st) : null;
+  const L2 = st.last;
+  const center = st.phase === 'over' ? `<div class="center over"><h2>${esc(names[st.winner])} ${/^you$/i.test(names[st.winner]) ? 'win' : 'wins'}!</h2><div>${chipsOf(st.chips[st.winner])}</div>
+      <div class="row" style="justify-content:center">${S.mode === 'local' || isHost() ? '<button class="btn pri" data-act="rematch">Play again</button>' : '<span class="note">The host can start a rematch.</span>'}<button class="btn ghost" data-act="leave">Tables</button></div></div>`
+    : `<div class="center"><div class="stakechip">${st.chip && st.phase === 'battle' ? chipHTML(st.chip) : '<span class="chip empty"></span>'}</div>
+      ${st.winter != null ? `<div class="wslot" data-wslot>${cardHTML('WINTER.mid', { loc: 'mid', attr: 'data-cid="WINTER"' })}</div>` : ''}
+      <div class="cap">${showLast ? `Last battle: ${L2.how === 'doves' ? 'Doves, no winner' : esc(names[L2.winner]) + ' won' + (L2.how === 'crows' ? ' by Crows' : '')}${L2.roundEnd ? ' · new deal' : ''}` : lead != null ? `${esc(names[lead])} ${lead === me && /^you$/i.test(names[lead]) ? 'lead' : 'leads'}` : st.chip ? H.CNAME[st.chip] + ' chip' : 'Round ' + st.round}</div></div>`;
+  let tray = '';
+  if (me >= 0) {
+    const baitMode = S.ui.bait && myTurn;
+    const hand = st.hands[me].map(c => { const ok = myTurn && st.phase === 'battle' && L.includes(c) && !baitMode; return cardHTML(c, { btn: true, loc: 'hand', cls: ok ? 'ok' : (myTurn && st.phase === 'battle' ? 'no' : ''), attr: (ok ? `data-act="play" data-card="${c}"` : 'disabled tabindex="-1"') + ` data-hid="${c}"` }); }).join('');
+    const acts = st.phase === 'choose' && myTurn ? H.COLORS.map(c => `<button class="btn" data-act="chip" data-c="${c}" ${H.chipsLeft(st, c) > 0 ? '' : 'disabled'}>${chipHTML(c, 22)} ${H.CNAME[c]}${H.wouldWinGame(st.chips[me], c) ? ' <span class="tag org">wins it</span>' : ''}</button>`).join('')
+      : st.phase === 'battle' && myTurn ? (baitMode ? `<span class="note">Bait: tap a force card in your row to take back.</span><button class="btn sm ghost" data-act="baitcancel">Cancel</button>`
+        : `<button class="btn pri" data-act="pass">Pass</button>${H.canDump(st, me) ? `<button class="btn ghost" data-act="dump" title="You have no force cards: show and discard your whole hand">Pass &amp; discard hand</button>` : ''}`) : '';
+    tray = `<section class="tray ${myTurn ? 'turn' : ''}"><div class="acts">${acts}</div><div class="hand" role="group" aria-label="Your hand">${hand || '<span class="note">No cards in hand. You sit out until the next deal.</span>'}</div></section>`;
+  }
+  return `${bar}<div class="game ${P.chat || P.log || P.cards ? 'withdrawer' : ''} ${P.scores !== false ? 'withscores' : ''}">${P.scores !== false ? scoresHTML(st, names, me) : ''}<div class="board">
+    <div class="statusbar"><div class="status">${statusLine(st, names, me)}</div><div class="sub">Round ${st.round} · battle ${st.battle || 1} · ${st.deck.length} undealt</div></div>
+    <div class="tablewrap n${st.n}"><div class="felt"></div>
+      ${center}
+      ${seats.map(({ s, p }) => rowHTML(st, s, me, p, showLast)).join('')}
+      ${seats.map(({ s, p }) => plateHTML(st, G, s, names, me, p)).join('')}
+    </div>
+    ${tray}
+    </div>${drawerHTML(st, names)}</div>`;
+}
+// ---------- motion: cards fly from the hand or the player's seat to the table ----------
+function snapRects() {
+  const m = { hand: {}, plate: {}, row: new Set(), last: S.st && S.st.last ? S.st.last.battle : null };
+  document.querySelectorAll('[data-hid]').forEach(e => m.hand[e.dataset.hid] = e.getBoundingClientRect());
+  document.querySelectorAll('.plate[data-seat]').forEach(e => m.plate[e.dataset.seat] = e.getBoundingClientRect());
+  document.querySelectorAll('.trow [data-cid], [data-wslot] [data-cid]').forEach(e => m.row.add(e.dataset.cid));
+  return m;
+}
+function animateIn(prev) {
+  if (!prev || !S.st || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const st = S.st;
+  const owner = cid => { if (cid === 'WINTER') return st.winter; for (let s = 0; s < st.n; s++) if (st.rows[s].includes(cid)) return s; return null; };
+  document.querySelectorAll('.trow:not(.lastrow) [data-cid], [data-wslot] [data-cid]').forEach(el => {
+    const cid = el.dataset.cid; if (prev.row.has(cid)) return;
+    const s = owner(cid); if (s == null) return;
+    const hid = cid === 'WINTER' ? Object.keys(prev.hand).find(k => k.startsWith('WINTER')) : cid;
+    const from = (hid && prev.hand[hid]) || prev.plate[s]; if (!from) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2), dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const sc = Math.min(1.6, from.width / to.width * (prev.hand[hid] ? 1 : .6));
+    el.animate([
+      { transform: `translate(${dx}px,${dy}px) scale(${sc}) rotate(${dx > 0 ? 14 : -14}deg)`, opacity: prev.hand[hid] ? 1 : 0.2, zIndex: 9 },
+      { transform: `translate(${dx * .15}px,${dy * .15 - 18}px) scale(1.15) rotate(${dx > 0 ? 3 : -3}deg)`, opacity: 1, offset: .75, zIndex: 9 },
+      { transform: 'none', opacity: 1, zIndex: 9 }
+    ], { duration: 560, easing: 'cubic-bezier(.2,.75,.25,1)' });
+  });
+  // chip flies to the battle winner
+  const L = st.last;
+  if (L && L.battle !== prev.last && L.winner != null && prev.last !== undefined) {
+    const to = document.querySelector(`.plate[data-seat="${L.winner}"]`), tw = document.querySelector('.tablewrap');
+    if (to && tw) {
+      const r = to.getBoundingClientRect(), t = tw.getBoundingClientRect();
+      const chip = document.createElement('span'); chip.className = 'chip flying ' + L.chip;
+      chip.style.cssText = `--s:56px;position:fixed;left:${t.left + t.width / 2 - 28}px;top:${t.top + t.height / 2 - 28}px;z-index:40`;
+      document.body.appendChild(chip);
+      chip.animate([{ transform: 'scale(1.3)' }, { transform: `translate(${r.left + r.width / 2 - t.left - t.width / 2}px,${r.top + r.height / 2 - t.top - t.height / 2}px) scale(.4)`, opacity: .9 }], { duration: 750, easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => chip.remove();
+    }
+  }
+}
+function render() {
+  const keep = document.activeElement && document.activeElement.id; const val = keep && document.activeElement.value; const sel = keep && document.activeElement.selectionStart;
+  const prev = S.view === 'table' && S.st ? snapRects() : null;
+  hideTip();
+  $('#app').innerHTML = S.view === 'table' ? viewTable() : viewHome();
+  if (keep) { const el = document.getElementById(keep); if (el) { el.focus(); if (val != null && 'value' in el) { el.value = val; try { el.setSelectionRange(sel, sel); } catch (e) {} } } }
+  const lg = $('#log'); if (lg) lg.scrollTop = lg.scrollHeight;
+  const cb = $('#chatbox'); if (cb) cb.scrollTop = cb.scrollHeight;
+  if (S.view === 'table') animateIn(prev && prev.row.size + Object.keys(prev.hand).length + Object.keys(prev.plate).length ? prev : null);
+}
+let toastT = null;
+function toast(m) { let t = $('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = m; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3200); }
+
+// ---------- events ----------
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
+  const a = el.dataset.act, i = +el.dataset.i;
+  switch (a) {
+    case 'practice': if (!S.name.trim()) S.name = 'You'; startPractice(S.ui.practiceN); break;
+    case 'create': createTable(); break;
+    case 'join': { const c = (S.ui.join || '').toUpperCase().trim(); if (!/^[A-Z0-9]{5}$/.test(c)) { toast('Codes have five letters or digits.'); break; } openTable(c); break; }
+    case 'open': openTable(el.dataset.code); break;
+    case 'leave': leave(); break;
+    case 'sit': sit(i); break;
+    case 'stand': stand(i); break;
+    case 'addbot': addBot(i); break;
+    case 'nseats': setSeats(+el.dataset.n); break;
+    case 'start': startGame(); break;
+    case 'takeover': botTakeover(i); break;
+    case 'reclaim': reclaim(i); break;
+    case 'rematch': rematch(); break;
+    case 'copy': { const url = S.net ? location.origin + location.pathname + '#join-' + S.code : ART_URL; const txt = `Join my Hilt table — code ${S.code}${url ? ': ' + url : ''}`; navigator.clipboard.writeText(txt).then(() => toast('Invite copied.'), () => toast('Code: ' + S.code)); break; }
+    case 'chip': act({ t: 'chip', color: el.dataset.c }); break;
+    case 'pass': act({ t: 'pass' }); break;
+    case 'dump': act({ t: 'pass', dump: true }); break;
+    case 'play': {
+      const c = el.dataset.card, st = S.st, me = mySeat();
+      if (H.kind(c) === 'BAIT') { const tg = H.baitTargets(st, me); const vals = new Set(tg.map(H.faceVal)); if (vals.size > 1) { S.ui.bait = c; render(); break; } act({ t: 'play', card: c, target: tg[0] }); break; }
+      act({ t: 'play', card: c }); break;
+    }
+    case 'baitpick': act({ t: 'play', card: S.ui.bait, target: el.dataset.card }); break;
+    case 'panel': { const p = el.dataset.p; S.ui.panels[p] = p === 'scores' ? S.ui.panels.scores === false : !S.ui.panels[p]; if (p === 'chat' && S.ui.panels.chat) S.unread = false; ls.set('hilt.panels', JSON.stringify(S.ui.panels)); render(); break; }
+    case 'resume-host': resumeHosting(); break;
+    case 'ice-save': { S.ui.iceOpen = true; const raw = ($('#icejson') || {}).value || '';
+      try { let v = JSON.parse(raw); if (v && !Array.isArray(v) && Array.isArray(v.iceServers)) v = v.iceServers; if (!Array.isArray(v) || !v.length || v.some(x => !x || !x.urls)) throw 0; ls.set('hilt.ice', JSON.stringify(v)); S.ui.iceDraft = JSON.stringify(v); toast('Saved. It’s used the next time you open or join a table.'); }
+      catch (err) { toast('That doesn’t look like an ICE server list: a JSON array of {urls, username, credential}.'); }
+      render(); break; }
+    case 'ice-clear': S.ui.iceOpen = true; try { localStorage.removeItem('hilt.ice'); } catch (e) {} S.ui.iceDraft = ''; toast('Relay server cleared.'); render(); break;
+    case 'onlystr': S.ui.onlyStr = el.checked; ls.set('hilt.onlyStr', el.checked ? '1' : ''); render(); break;
+    case 'baitcancel': S.ui.bait = null; render(); break;
+  }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'name') { S.name = t.value; ls.set('hilt.name', t.value.trim()); }
+  if (t.id === 'joincode') { S.ui.join = t.value.toUpperCase(); }
+  if (t.id === 'icejson') { S.ui.iceDraft = t.value; }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'pn') S.ui.practiceN = +t.value;
+  if (t.id === 'ns') S.ui.nseats = +t.value;
+});
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.dataset.form === 'chat') { const i = $('#chatin'); sendChat(i.value); i.value = ''; }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'joincode') { e.preventDefault(); document.querySelector('[data-act=join]')?.click(); } });
+
+let rzT=null; addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (S.view === 'table') render(); }, 150); });
+S.ui.onlyStr = ls.get('hilt.onlyStr') === '1';
+render();
+initCaps();
+}
+</script>
+</body>
+</html>
